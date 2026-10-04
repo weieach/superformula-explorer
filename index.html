@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Superformula explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8ECF1; --ink:#18212C; --muted:#5B6676; --line:#C6CED8;
+  --accent:#2A6F97; --mesh:#7FB7A4; --panel:#F4F6F9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;font-size:15px;line-height:1.5}
+header{padding:28px 32px 8px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:12px 32px}
+h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-0.01em}
+.formula{font-family:"STIX Two Text",serif;font-size:19px;color:var(--ink)}
+.formula sup{font-size:13px}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;padding:16px 32px 32px}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;min-height:560px;overflow:hidden;cursor:grab}
+.stage:active{cursor:grabbing}
+#view{position:absolute;inset:0}
+.inset{position:absolute;left:16px;bottom:16px;background:rgba(244,246,249,.92);border:1px solid var(--line);border-radius:10px;padding:8px}
+.inset p{margin:0 0 4px;font-size:12px;color:var(--muted)}
+#c2{display:block;width:150px;height:150px}
+.hint{position:absolute;right:16px;bottom:16px;font-size:12px;color:var(--muted)}
+aside{display:flex;flex-direction:column;gap:20px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font:inherit;font-size:13px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.presets button:hover{border-color:var(--accent)}
+.presets button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.randomize{font:inherit;font-size:14px;font-weight:500;margin-top:12px;width:100%;padding:9px 14px;border-radius:10px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.randomize:hover{background:var(--accent);color:#fff}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-size:14px;font-weight:600;margin:0 0 2px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 10px}
+.row{display:grid;grid-template-columns:30px 1fr 44px;align-items:center;gap:10px;margin:6px 0}
+.row label{font-family:"STIX Two Text",serif;font-style:italic;font-size:16px}
+.row output{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.config{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:860px){
+  main{grid-template-columns:1fr;padding:12px 16px 24px}
+  header{padding:20px 16px 4px}
+  .stage{min-height:400px}
+}
+@media (prefers-reduced-motion:reduce){.presets button{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Superformula explorer</h1>
+  <div class="formula">r(φ) = ( |cos(mφ/4) / a|<sup>n₂</sup> + |sin(mφ/4) / b|<sup>n₃</sup> )<sup>−1/n₁</sup></div>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <div id="view"></div>
+    <div class="inset"><p>Set 1 as a 2D curve</p><canvas id="c2" width="300" height="300"></canvas></div>
+    <div class="hint">Drag to rotate · scroll to zoom</div>
+  </div>
+  <aside>
+    <div>
+      <h2>Shape categories</h2>
+      <p class="sub">Load a sample config, then adjust from there.</p>
+      <div class="presets" id="presets"></div>
+      <button class="randomize" id="randomize">Randomize both sets</button>
+    </div>
+    <div>
+      <h2>Set 1</h2>
+      <p class="sub">Around the equator (θ): the top-down cross-section</p>
+      <div id="A"></div>
+    </div>
+    <div>
+      <h2>Set 2</h2>
+      <p class="sub">Pole to pole (φ): the side profile</p>
+      <div id="B"></div>
+    </div>
+    <div class="config" id="config"></div>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const P = { A:{m:7,n1:0.2,n2:1.7,n3:1.7,a:1,b:1}, B:{m:7,n1:0.2,n2:1.7,n3:1.7,a:1,b:1} };
+const presets = {
+  "Sphere":[[0,1,1,1],[0,1,1,1]],
+  "Rounded box":[[4,4,4,4],[4,4,4,4]],
+  "Sharp cube":[[4,20,20,20],[4,20,20,20]],
+  "Diamond":[[4,1,1,1],[4,1,1,1]],
+  "Cylinder":[[0,1,1,1],[4,20,20,20]],
+  "Hex prism":[[6,20,20,20],[4,20,20,20]],
+  "Starfish":[[5,0.3,0.3,0.3],[1,0.3,0.3,0.3]],
+  "Flower":[[7,0.2,1.7,1.7],[7,0.2,1.7,1.7]],
+  "Urchin":[[12,0.5,0.5,0.5],[12,0.5,0.5,0.5]],
+  "Gear":[[6,1,7,8],[4,10,10,10]],
+  "Star prism":[[5,0.3,0.3,0.3],[4,20,20,20]],
+  "Flower-topped sphere":[[7,0.2,1.7,1.7],[0,1,1,1]],
+  "Torn form":[[7.3,0.2,1.7,1.7],[7,0.2,1.7,1.7]]
+};
+const specs = { m:[0,20,0.1], n1:[0.1,20,0.1], n2:[0.1,20,0.1], n3:[0.1,20,0.1], a:[0.5,2,0.05], b:[0.5,2,0.05] };
+const labels = { m:"m", n1:"n₁", n2:"n₂", n3:"n₃", a:"a", b:"b" };
+
+function makeSliders(id){
+  const el = document.getElementById(id);
+  Object.keys(specs).forEach(k=>{
+    const [mn,mx,st] = specs[k];
+    const r = document.createElement('div'); r.className='row';
+    r.innerHTML = `<label for="${id}${k}">${labels[k]}</label><input type="range" id="${id}${k}" min="${mn}" max="${mx}" step="${st}"><output id="${id}${k}o"></output>`;
+    el.appendChild(r);
+    r.querySelector('input').addEventListener('input', e=>{ P[id][k]=parseFloat(e.target.value); clearActive(); sync(); });
+  });
+}
+makeSliders('A'); makeSliders('B');
+
+const pr = document.getElementById('presets');
+function clearActive(){ pr.querySelectorAll('button').forEach(b=>b.classList.remove('on')); }
+Object.keys(presets).forEach(name=>{
+  const b = document.createElement('button'); b.textContent = name;
+  b.onclick = ()=>{
+    const [s1,s2] = presets[name];
+    ['m','n1','n2','n3'].forEach((k,i)=>{ P.A[k]=s1[i]; P.B[k]=s2[i]; });
+    P.A.a=P.A.b=P.B.a=P.B.b=1;
+    clearActive(); b.classList.add('on'); sync();
+  };
+  pr.appendChild(b);
+});
+
+// Random values are skewed toward ranges that tend to give interesting, well-formed shapes:
+// mostly whole-number m, exponents spread on a log scale, and a/b kept near 1.
+function rnd(min,max){ return min + Math.random()*(max-min); }
+function logRnd(min,max){ return Math.exp(rnd(Math.log(min),Math.log(max))); }
+function round(v,step){ return Math.round(v/step)*step; }
+function randomSet(){
+  const m = Math.random()<0.85 ? Math.floor(rnd(0,13)) : round(rnd(0.5,12.5),0.1);
+  const n1 = round(logRnd(0.15,12),0.1);
+  const same = Math.random()<0.5;
+  const n2 = round(logRnd(0.2,15),0.1);
+  const n3 = same ? n2 : round(logRnd(0.2,15),0.1);
+  const a = Math.random()<0.7 ? 1 : round(rnd(0.7,1.4),0.05);
+  const b = Math.random()<0.7 ? 1 : round(rnd(0.7,1.4),0.05);
+  return {m,n1,n2,n3,a,b};
+}
+document.getElementById('randomize').onclick = ()=>{
+  P.A = randomSet(); P.B = randomSet();
+  clearActive(); sync();
+};
+
+function sf(p,q){
+  const t = q.m*p/4;
+  const v = Math.pow(Math.abs(Math.cos(t)/q.a),q.n2) + Math.pow(Math.abs(Math.sin(t)/q.b),q.n3);
+  if (v===0) return 0;
+  const r = Math.pow(v,-1/q.n1);
+  return isFinite(r) ? Math.min(r,50) : 50;
+}
+
+function draw2(){
+  const c = document.getElementById('c2'), x = c.getContext('2d');
+  x.clearRect(0,0,300,300);
+  x.strokeStyle = '#C6CED8'; x.lineWidth = 1;
+  x.beginPath(); x.moveTo(150,10); x.lineTo(150,290); x.moveTo(10,150); x.lineTo(290,150); x.stroke();
+  const pts=[]; let mx=0;
+  for(let i=0;i<=1500;i++){ const p=i/1500*2*Math.PI, r=sf(p,P.A); mx=Math.max(mx,r); pts.push([r*Math.cos(p),r*Math.sin(p)]); }
+  const s = 130/(mx||1);
+  x.strokeStyle = '#2A6F97'; x.lineWidth = 3; x.lineJoin='round';
+  x.beginPath();
+  pts.forEach((q,i)=>{ const X=150+q[0]*s, Y=150-q[1]*s; i?x.lineTo(X,Y):x.moveTo(X,Y); });
+  x.stroke();
+}
+
+const stage = document.getElementById('stage'), view = document.getElementById('view');
+const R = new THREE.WebGLRenderer({antialias:true,alpha:true});
+R.setPixelRatio(window.devicePixelRatio);
+view.appendChild(R.domElement);
+const S = new THREE.Scene();
+const C = new THREE.PerspectiveCamera(38,1,0.1,100); C.position.set(0,0,4.6);
+S.add(new THREE.AmbientLight(0xffffff,0.45));
+const L1 = new THREE.DirectionalLight(0xffffff,0.75); L1.position.set(3,4,5); S.add(L1);
+const L2 = new THREE.DirectionalLight(0xffffff,0.25); L2.position.set(-4,-2,-3); S.add(L2);
+const G = new THREE.Group(); S.add(G);
+let mesh = null;
+const NU = 260, NV = 130;
+
+function build(){
+  const pos = new Float32Array((NU+1)*(NV+1)*3), idx = [];
+  const r1=[], r2=[]; let mx=0, k=0;
+  for(let i=0;i<=NU;i++) r1.push(sf(-Math.PI+i/NU*2*Math.PI,P.A));
+  for(let j=0;j<=NV;j++) r2.push(sf(-Math.PI/2+j/NV*Math.PI,P.B));
+  for(let j=0;j<=NV;j++){
+    const ph = -Math.PI/2+j/NV*Math.PI, cp=Math.cos(ph), sp=Math.sin(ph);
+    for(let i=0;i<=NU;i++){
+      const th = -Math.PI+i/NU*2*Math.PI;
+      const x = r1[i]*Math.cos(th)*r2[j]*cp, y = r1[i]*Math.sin(th)*r2[j]*cp, z = r2[j]*sp;
+      mx = Math.max(mx,Math.abs(x),Math.abs(y),Math.abs(z));
+      pos[k++]=x; pos[k++]=z; pos[k++]=y;
+    }
+  }
+  const s = 1.35/(mx||1);
+  for(let i=0;i<pos.length;i++) pos[i]*=s;
+  for(let j=0;j<NV;j++) for(let i=0;i<NU;i++){
+    const a=j*(NU+1)+i, b=a+1, c=a+NU+1, d=c+1;
+    idx.push(a,c,b,b,c,d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setIndex(idx); g.computeVertexNormals();
+  if(mesh){ G.remove(mesh); mesh.geometry.dispose(); }
+  mesh = new THREE.Mesh(g, new THREE.MeshPhongMaterial({color:0x7FB7A4, shininess:25, side:THREE.DoubleSide}));
+  G.add(mesh);
+}
+
+function fmt(v,k){ return k==='m' ? (Number.isInteger(v)?v:v.toFixed(1)) : (k==='a'||k==='b'?v.toFixed(2):v.toFixed(1)); }
+function sync(){
+  ['A','B'].forEach(id=>Object.keys(specs).forEach(k=>{
+    document.getElementById(id+k).value = P[id][k];
+    document.getElementById(id+k+'o').textContent = fmt(P[id][k],k);
+  }));
+  const t = q=>`(${fmt(q.m,'m')}, ${fmt(q.n1)}, ${fmt(q.n2)}, ${fmt(q.n3)})`;
+  document.getElementById('config').textContent = `Set 1 ${t(P.A)} · Set 2 ${t(P.B)} · a = ${P.A.a.toFixed(2)}/${P.B.a.toFixed(2)}, b = ${P.A.b.toFixed(2)}/${P.B.b.toFixed(2)}`;
+  draw2(); build();
+}
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  R.setSize(w,h); C.aspect = w/h; C.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+let drag=false, lx=0, ly=0, auto=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+stage.addEventListener('pointerdown', e=>{ drag=true; auto=false; lx=e.clientX; ly=e.clientY; stage.setPointerCapture(e.pointerId); });
+stage.addEventListener('pointermove', e=>{ if(!drag) return; G.rotation.y += (e.clientX-lx)*0.01; G.rotation.x += (e.clientY-ly)*0.01; lx=e.clientX; ly=e.clientY; });
+stage.addEventListener('pointerup', ()=>drag=false);
+stage.addEventListener('wheel', e=>{ e.preventDefault(); C.position.z = Math.min(10,Math.max(2.2, C.position.z + e.deltaY*0.003)); }, {passive:false});
+
+G.rotation.x = 0.4;
+resize();
+pr.children[7].classList.add('on');
+sync();
+(function loop(){ if(auto) G.rotation.y += 0.004; R.render(S,C); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
