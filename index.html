@@ -9,7 +9,7 @@
 <style>
 :root{
   --paper:#E8ECF1; --ink:#18212C; --muted:#5B6676; --line:#C6CED8;
-  --accent:#2A6F97; --mesh:#7FB7A4; --panel:#F4F6F9; --clay:#B4BCC7;
+  --accent:#2A6F97; --mesh:#7FB7A4; --panel:#F4F6F9;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;font-size:15px;line-height:1.5}
@@ -35,10 +35,6 @@ aside{display:flex;flex-direction:column;gap:20px}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 h2{font-size:14px;font-weight:600;margin:0 0 2px}
 .sub{font-size:13px;color:var(--muted);margin:0 0 10px}
-.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line);margin:4px 0 8px}
-.tabs button{font:inherit;font-size:13px;font-weight:500;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:4px 0 7px;color:var(--muted);cursor:pointer}
-.tabs button:hover{color:var(--ink)}
-.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .row{display:grid;grid-template-columns:30px 1fr 44px;align-items:center;gap:10px;margin:6px 0}
 .row label{font-family:"STIX Two Text",serif;font-style:italic;font-size:16px}
 .row output{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
@@ -66,13 +62,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <aside>
     <div>
       <h2>Material</h2>
-      <div class="tabs" id="materials" role="tablist" aria-label="Material">
-        <button type="button" role="tab" data-mat="solid" aria-selected="true">Solid</button>
-        <button type="button" role="tab" data-mat="glass" aria-selected="false" tabindex="-1">Glass</button>
-        <button type="button" role="tab" data-mat="zebra" aria-selected="false" tabindex="-1">Zebra</button>
-        <button type="button" role="tab" data-mat="clay" aria-selected="false" tabindex="-1">Clay</button>
+      <div class="presets" id="materials">
+        <button type="button" data-mat="clay" class="on">Clay</button>
+        <button type="button" data-mat="glass">Glass</button>
+        <button type="button" data-mat="metal">Metal</button>
+        <button type="button" data-mat="negative">Negative</button>
       </div>
-      <p class="sub" id="matNote"></p>
     </div>
     <div>
       <h2>Shape categories</h2>
@@ -192,19 +187,14 @@ S.add(new THREE.AmbientLight(0xffffff,0.45));
 const L1 = new THREE.DirectionalLight(0xffffff,0.75); L1.position.set(3,4,5); S.add(L1);
 const L2 = new THREE.DirectionalLight(0xffffff,0.25); L2.position.set(-4,-2,-3); S.add(L2);
 const G = new THREE.Group(); S.add(G);
-let mesh = null, back = null, refl = null, edge = null;
+let mesh = null, back = null, refl = null, edge = null, backdrop = null;
 const mats = {};
-let material = 'solid';
-const MAT_NOTES = {
-  solid:"The original matte green, for a simple reading of the shape.",
-  glass:"Clear glass in a studio: a softbox above and strip lights at the sides. The reflections slide over the surface as it turns, which shows its curvature.",
-  zebra:"Reflection lines, as in Rhino's Zebra analysis. Stripes follow the curvature, so a kink in a stripe marks a break in the surface.",
-  clay:"Neutral grey with a clear coat, for reading the form."
-};
+let material = 'clay';
 const NU = 260, NV = 130;
 
 function initMaterials(){
-  S.add(new THREE.Mesh(new THREE.SphereGeometry(40,24,12), new THREE.MeshBasicMaterial({color:0xF4F6F9, side:THREE.BackSide})));
+  backdrop = new THREE.Mesh(new THREE.SphereGeometry(40,24,12), new THREE.MeshBasicMaterial({color:0xF4F6F9, side:THREE.BackSide}));
+  S.add(backdrop);
   const env = new THREE.Scene();
   const roomGeo = new THREE.SphereGeometry(10,32,16), cols = [], pa = roomGeo.attributes.position;
   for(let i=0;i<pa.count;i++){ const t=(pa.getY(i)/10+1)/2, c=0.012+0.07*t; cols.push(c,c,c*1.06); }
@@ -218,8 +208,39 @@ function initMaterials(){
   S.environment = pm.fromScene(env, 0.02).texture;
   pm.dispose();
 
-  mats.solid = new THREE.MeshPhongMaterial({color:0x7FB7A4, shininess:25, side:THREE.DoubleSide});
-  mats.clay = new THREE.MeshPhysicalMaterial({color:0xB4BCC7, roughness:0.45, metalness:0, clearcoat:0.6, clearcoatRoughness:0.18, envMapIntensity:1, side:THREE.DoubleSide});
+  mats.clay = new THREE.MeshPhongMaterial({color:0xB0B4B8, specular:0x0a0a0a, shininess:12, side:THREE.DoubleSide});
+  mats.metal = new THREE.ShaderMaterial({
+    extensions:{derivatives:true},
+    side:THREE.DoubleSide,
+    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vV=mv.xyz; vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:[
+      'varying vec3 vN; varying vec3 vV;',
+      'void main(){',
+      '  vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N;',
+      '  vec3 Rf=reflect(normalize(vV),N);',
+      '  float s=sin(Rf.y*34.0);',
+      '  float w=min(fwidth(s)*0.9,1.0);',
+      '  float k=smoothstep(-w,w,s);',
+      '  gl_FragColor=vec4(mix(vec3(0.015),vec3(0.97),k),1.0);',
+      '}'
+    ].join('\n')
+  });
+  mats.negative = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, depthFunc:THREE.LessEqualDepth, side:THREE.DoubleSide,
+    blending:THREE.MultiplyBlending,
+    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vV=mv.xyz; vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:[
+      'varying vec3 vN; varying vec3 vV;',
+      'void main(){',
+      '  vec3 N=normalize(vN), V=normalize(-vV); if(!gl_FrontFacing) N=-N;',
+      '  float ndv=abs(dot(N,V));',
+      '  float rim=smoothstep(0.32,0.0,ndv);',
+      '  float core=smoothstep(0.25,1.0,ndv);',
+      '  float d=clamp(rim*0.72+core*0.1,0.0,0.8);',
+      '  gl_FragColor=vec4(vec3(mix(1.0,0.02,d)),1.0);',
+      '}'
+    ].join('\n')
+  });
   const glassOpts = {color:0xeef6f3, roughness:0.04, metalness:0, transparent:true, opacity:0.16, depthWrite:false, envMapIntensity:1.6, clearcoat:1, clearcoatRoughness:0.04};
   mats.glass = new THREE.MeshPhysicalMaterial(Object.assign({side:THREE.FrontSide}, glassOpts));
   mats.glassBack = new THREE.MeshPhysicalMaterial(Object.assign({}, glassOpts, {opacity:0.1, side:THREE.BackSide}));
@@ -244,13 +265,6 @@ function initMaterials(){
       '  gl_FragColor=vec4(mix(vec3(1.0),vec3(L),a),1.0);',
       '}'].join('\n')
   });
-  mats.zebra = new THREE.ShaderMaterial({
-    uniforms:{freq:{value:16}},
-    extensions:{derivatives:true},
-    side:THREE.DoubleSide,
-    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vV=mv.xyz; vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }',
-    fragmentShader:'uniform float freq; varying vec3 vN; varying vec3 vV; void main(){ vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N; vec3 Rf=reflect(normalize(vV),N); float s=sin(Rf.y*freq); float w=min(fwidth(s)*1.2,1.0); float k=smoothstep(-w,w,s); gl_FragColor=vec4(mix(vec3(0.05),vec3(0.95),k),1.0); }'
-  });
   mats.edge = new THREE.ShaderMaterial({
     uniforms:{color:{value:new THREE.Color(0x16202b)}, strength:{value:0.5}, power:{value:2.4}, line:{value:0.55}},
     transparent:true, depthWrite:false, depthFunc:THREE.LessEqualDepth, side:THREE.DoubleSide,
@@ -258,37 +272,19 @@ function initMaterials(){
     fragmentShader:'uniform vec3 color; uniform float strength; uniform float power; uniform float line; varying vec3 vN; varying vec3 vV; void main(){ float f=1.0-abs(dot(normalize(vN),normalize(-vV))); float a=strength*pow(f,power)+line*smoothstep(0.86,0.985,f); gl_FragColor=vec4(color,clamp(a,0.0,0.9)); }'
   });
 
-  const tabs = document.getElementById('materials');
-  tabs.querySelectorAll('button').forEach(b=>{
+  document.getElementById('materials').querySelectorAll('button').forEach(b=>{
     b.onclick = ()=>{ material = b.dataset.mat; applyMaterial(); };
-  });
-  tabs.addEventListener('keydown', e=>{
-    if(e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
-    const btns = Array.from(tabs.querySelectorAll('button'));
-    let i = btns.findIndex(b=>b.dataset.mat===material);
-    i = (i + (e.key==='ArrowRight'?1:-1) + btns.length) % btns.length;
-    material = btns[i].dataset.mat;
-    applyMaterial();
-    btns[i].focus();
-    e.preventDefault();
   });
   applyMaterial();
 }
 function applyMaterial(){
-  document.querySelectorAll('#materials button').forEach(b=>{
-    const on = b.dataset.mat===material;
-    b.setAttribute('aria-selected', on ? 'true' : 'false');
-    b.tabIndex = on ? 0 : -1;
-  });
-  document.getElementById('matNote').textContent = MAT_NOTES[material];
+  document.querySelectorAll('#materials button').forEach(b=>b.classList.toggle('on', b.dataset.mat===material));
   if(!mesh) return;
   mesh.material = mats[material];
   const glass = material==='glass';
-  back.visible = refl.visible = glass;
-  edge.visible = glass || material==='clay';
-  const u = mats.edge.uniforms;
-  if(glass){ u.strength.value=0.2; u.power.value=3; u.line.value=0.6; }
-  else { u.strength.value=0.32; u.power.value=3; u.line.value=0.5; }
+  back.visible = refl.visible = edge.visible = glass;
+  if(backdrop) backdrop.material.color.set(material==='negative' ? 0xffffff : 0xF4F6F9);
+  if(glass){ const u = mats.edge.uniforms; u.strength.value=0.2; u.power.value=3; u.line.value=0.6; }
 }
 function attachGeometry(g){
   if(mesh){
@@ -296,7 +292,7 @@ function attachGeometry(g){
     mesh.geometry = back.geometry = refl.geometry = edge.geometry = g;
     return;
   }
-  mesh = new THREE.Mesh(g, mats.solid); mesh.renderOrder = 3;
+  mesh = new THREE.Mesh(g, mats.clay); mesh.renderOrder = 3;
   back = new THREE.Mesh(g, mats.glassBack); back.renderOrder = 1;
   refl = new THREE.Mesh(g, mats.refl); refl.renderOrder = 5;
   edge = new THREE.Mesh(g, mats.edge); edge.renderOrder = 4;

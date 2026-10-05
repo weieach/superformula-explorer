@@ -35,9 +35,10 @@ serve the folder (`python3 -m http.server 5190`). The `static` entry in
   (`NV` = 130) and normalises the shape to fit. The formula is z-up, so
   positions are written as (x, z, y) to stand the profile along three.js's
   y axis. Geometry is replaced in place; the material stays on the mesh.
-- Materials are Solid (the original matte green Phong), plus Glass, Zebra
-  and Clay from the Superquadric explorer. Glass, the reflection layer and
-  the silhouette edge share that geometry.
+- Materials are Clay (matte grey Phong), Glass, Metal (high-contrast
+  zebra reflection lines, a dark mirror), and Negative (a white ground
+  with accumulated dark glass, like a film negative). Glass, the reflection
+  layer and the silhouette edge share that geometry.
 - three.js is **r128**, loaded as the global `THREE` build from cdnjs.
   Newer releases dropped that build. Moving to a newer version means
   switching to ES modules and an import map, so do it on purpose, not as a
