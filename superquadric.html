@@ -1,0 +1,1442 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Superquadric CSG Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky 3D stage beside a control column (presets, parts, joins, shell, display); one column below 880px. Same family as the Superformula and Metaballs explorers.
+   Single white theme by request: the page stays white in dark mode too. Hairline borders separate the stage and controls. */
+:root{
+  --paper:#FFFFFF; --panel:#FFFFFF; --ink:#18212C; --muted:#5B6676; --line:#D5DBE2;
+  --accent:#2A6F97; --on-accent:#FFFFFF; --tint:#EEF4F8; --err:#B42318; --clay:#B4BCC7;
+  --slice-in:#B9D3E2; --slice-out:#FFFFFF;
+  --serif:"STIX Two Text","Times New Roman",Georgia,serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.page{padding-inline:clamp(16px,3vw,32px);padding-block:24px 32px;max-width:1440px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 32px;padding-block:4px 16px}
+h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-0.01em;text-wrap:balance}
+.formula{font-family:var(--serif);font-size:18px;min-width:0}
+.formula sup{font-size:11px}
+.formula .note{font-family:var(--sans);font-size:13px;color:var(--muted);margin-left:12px;white-space:nowrap}
+main{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:24px;align-items:start}
+.stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);background:var(--panel);border:1px solid var(--line);border-radius:14px;height:min(82vh,760px);min-height:520px;overflow:hidden;cursor:grab;touch-action:none}
+.stage:active{cursor:grabbing}
+.stage.over::after{content:"Drop to add your model";position:absolute;inset:8px;display:grid;place-items:center;border:2px dashed var(--accent);border-radius:10px;background:color-mix(in srgb,var(--panel) 85%,transparent);font-size:15px;font-weight:500;color:var(--ink);pointer-events:none}
+#view{position:absolute;inset:0}
+.stats{position:absolute;left:16px;top:12px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
+.inset{position:absolute;left:16px;bottom:16px;background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:10px;padding:8px}
+.inset p{margin:0 0 4px;font-size:12px;color:var(--muted)}
+#slice{display:block;width:150px;height:150px;border-radius:4px}
+.hint{position:absolute;right:16px;bottom:16px;font-size:12px;color:var(--muted);pointer-events:none}
+.fail{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+aside{display:flex;flex-direction:column;gap:24px;min-width:0}
+aside section{display:flex;flex-direction:column;gap:8px}
+h2{font-size:14px;font-weight:600;margin:0}
+h3{font-size:11px;font-weight:600;margin:8px 0 0;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+.sub{font-size:13px;color:var(--muted);margin:0}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line)}
+.tabs button{font:inherit;font-size:13px;font-weight:500;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:4px 0 7px;color:var(--muted);cursor:pointer}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel{display:flex;flex-direction:column;gap:8px;padding-top:2px}
+.presets,.chips{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font:inherit;font-size:13px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.pill:hover,.chip:hover:not(:disabled){border-color:var(--accent)}
+.pill[aria-pressed="true"],.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.drop{display:flex;flex-direction:column;gap:2px;padding:14px;border:1px dashed var(--line);border-radius:10px;cursor:pointer;font-size:13px;color:var(--muted)}
+.drop strong{color:var(--ink);font-weight:600;font-size:14px}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--tint)}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.status{font-size:13px;margin:0;color:var(--muted);min-height:0}
+.status:empty{display:none}
+.status.err{color:var(--err)}
+.mine{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);max-width:100%}
+.mine:hover{border-color:var(--accent)}
+.mine .pill{border:0;background:transparent;padding-right:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mine .x{font:inherit;font-size:16px;line-height:1;border:0;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;flex:none}
+.mine .x:hover{color:var(--ink)}
+.mine.on{background:var(--accent);border-color:var(--accent)}
+.mine .pill[aria-pressed="true"],.mine.on .x{background:transparent;color:var(--on-accent)}
+.empty{font-size:13px;color:var(--muted);margin:0}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--panel)}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--ink);padding:5px 6px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.seg button:disabled{opacity:.4;cursor:default}
+.chip{font:inherit;font-size:13px;min-width:44px;height:32px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.chip .op{font-family:var(--serif);font-size:15px;line-height:1}
+.chip.add{border-style:dashed;color:var(--muted);min-width:32px}
+.chip:disabled{opacity:.4;cursor:default}
+.rows{display:flex;flex-direction:column;gap:2px}
+.row{display:grid;grid-template-columns:30px minmax(0,1fr) 46px;align-items:center;gap:10px}
+.row.wide{grid-template-columns:74px minmax(0,1fr) 46px}
+.row label{font-size:13px}
+.row label.sym{font-family:var(--serif);font-style:italic;font-size:16px}
+.row output{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.link{font:inherit;font-size:13px;background:none;border:0;padding:0;color:var(--accent);cursor:pointer;align-self:flex-start;text-decoration:underline;text-underline-offset:3px}
+.link:disabled{color:var(--muted);text-decoration:none;cursor:default}
+.checks{display:flex;flex-wrap:wrap;gap:8px 18px}
+.checks label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.checks input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.posline{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.posline span{color:var(--ink)}
+.stage.gz{cursor:default}
+.savebtn{position:absolute;right:16px;top:12px;font:inherit;font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+.savebtn:hover{filter:brightness(1.08)}
+.toast{position:absolute;right:16px;top:52px;font-size:12px;color:var(--muted);pointer-events:none}
+.lib{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.lib li{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px;background:var(--panel)}
+.lib li.on{border-color:var(--accent)}
+.lib img{width:72px;height:54px;object-fit:cover;border-radius:6px;background:var(--tint);display:block;cursor:pointer}
+.lib .meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lib input{font:inherit;font-size:13px;font-weight:500;color:var(--ink);border:1px solid transparent;border-radius:6px;padding:2px 4px;margin-left:-5px;background:transparent;min-width:0;width:100%}
+.lib input:hover{border-color:var(--line)}
+.lib input:focus{border-color:var(--accent);outline:none;background:var(--panel)}
+.lib small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib .acts{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.lib .acts button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap}
+.lib .acts button:hover{border-color:var(--accent)}
+.lib .acts .del{border-color:transparent;color:var(--muted)}
+.lib .acts .del.arm{color:var(--err);border-color:var(--err)}
+.config{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:880px){
+  main{grid-template-columns:1fr}
+  .stage{position:relative;top:auto;height:62vh;min-height:400px}
+}
+@media (max-width:560px){
+  .hint{display:none}
+  #slice{width:116px;height:116px}
+  .formula{font-size:15px}
+  .formula .note{display:block;margin:2px 0 0}
+}
+</style>
+
+<div class="page">
+<header>
+  <h1>Superquadric CSG explorer</h1>
+  <div class="formula">( |<i>x/w</i>|<sup>2/ε₂</sup> + |<i>z/d</i>|<sup>2/ε₂</sup> )<sup>ε₂/ε₁</sup> + |<i>y/h</i>|<sup>2/ε₁</sup> ≤ 1<span class="note">per part, combined with Boolean operations</span></div>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <div id="view"></div>
+    <div class="stats" id="stats"></div>
+    <div class="inset"><p>Front section at z = 0</p><canvas id="slice" width="300" height="300" aria-label="Front section of the solid"></canvas></div>
+    <button type="button" class="savebtn" id="saveBtn">Save</button>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="hint">Click a part to move it · drag to orbit · scroll to zoom</div>
+  </div>
+  <aside>
+    <section>
+      <h2>Presets</h2>
+      <div class="tabs" role="tablist" aria-label="Preset source">
+        <button type="button" role="tab" id="tabSamples" aria-controls="panelSamples" aria-selected="true">Samples</button>
+        <button type="button" role="tab" id="tabMine" aria-controls="panelMine" aria-selected="false" tabindex="-1">Your models</button>
+        <button type="button" role="tab" id="tabLib" aria-controls="panelLib" aria-selected="false" tabindex="-1">Library</button>
+      </div>
+      <div class="panel" id="panelSamples" role="tabpanel" aria-labelledby="tabSamples">
+        <p class="sub">Load a sample object, then adjust from there.</p>
+        <div class="presets" id="presets"></div>
+      </div>
+      <div class="panel" id="panelLib" role="tabpanel" aria-labelledby="tabLib" hidden>
+        <p class="sub" id="libNote">Shapes you save with the Save button in the view. Click a name to rename it; click the picture or Load to bring the shape back.</p>
+        <ul class="lib" id="lib"></ul>
+      </div>
+      <div class="panel" id="panelMine" role="tabpanel" aria-labelledby="tabMine" hidden>
+        <label class="drop" id="drop">
+          <input type="file" id="file" class="vh" accept=".stl,.obj,.glb">
+          <strong>Add a model</strong>
+          <span>Drop an STL, OBJ or GLB file here, or click to choose one.</span>
+        </label>
+        <p class="status" id="upStatus" role="status" aria-live="polite"></p>
+        <div class="presets" id="mine"></div>
+        <div id="upAxis" class="panel" hidden>
+          <h3>Up axis of this model</h3>
+          <div class="seg" id="upSeg" role="group" aria-label="Up axis of this model">
+            <button type="button" data-up="y">Y is up</button>
+            <button type="button" data-up="z">Z is up (Rhino)</button>
+          </div>
+        </div>
+        <p class="sub">Your model becomes part 1, rebuilt as a distance field so joins, cuts and the shell work on it. Add superquadric parts to cut into it or join onto it. Models stay in this browser only.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Parts</h2>
+      <p class="sub">Each part is a superquadric, or your own model as part 1. Parts after the first add to, cut from or intersect with the ones before. Up to 4.</p>
+      <div class="chips" id="chips"></div>
+      <div class="seg" id="opSeg" role="group" aria-label="Operation for this part">
+        <button type="button" data-op="add">Add</button>
+        <button type="button" data-op="sub">Subtract</button>
+        <button type="button" data-op="inter">Intersect</button>
+      </div>
+      <p class="sub" id="opNote"></p>
+      <p class="sub">Click a part in the view: drag the arrows to move it, the rings to turn it. Click empty space to hide them.</p>
+      <div class="posline"><span id="posInfo"></span><button type="button" class="link" id="resetPos">Reset position</button><button type="button" class="link" id="resetRot">Reset rotation</button></div>
+      <div id="profileBox" class="panel">
+        <h3>Profile</h3>
+        <p class="sub">ε₁ shapes the side profile, ε₂ the cross-section. Low is square, 1 is round, 2 is a diamond. Set top and base apart to change shape along the height.</p>
+        <div class="rows" id="profileRows"></div>
+      </div>
+      <h3>Deform</h3>
+      <div class="rows" id="deformRows"></div>
+      <h3>Size (half-widths)</h3>
+      <div class="rows" id="sizeRows"></div>
+      <div id="ringBox" class="panel">
+        <h3>Ring</h3>
+        <div class="checks"><label><input type="checkbox" id="p_ring"> Make this part a ring (supertoroid)</label></div>
+        <div class="rows" id="ringRows"></div>
+      </div>
+      <h3>Surface</h3>
+      <div class="seg" id="texSeg" role="group" aria-label="Surface texture">
+        <button type="button" data-tex="none">None</button>
+        <button type="button" data-tex="flutes">Flutes</button>
+        <button type="button" data-tex="rings">Rings</button>
+        <button type="button" data-tex="spiral">Spiral</button>
+        <button type="button" data-tex="dimples">Dimples</button>
+      </div>
+      <div class="rows" id="texRows"></div>
+      <button type="button" class="link" id="removePart">Remove part 2</button>
+    </section>
+
+    <section>
+      <h2>Joins</h2>
+      <div class="seg" id="joinSeg" role="group" aria-label="Join type">
+        <button type="button" data-join="sharp">Sharp</button>
+        <button type="button" data-join="round">Round</button>
+        <button type="button" data-join="chamfer">Chamfer</button>
+        <button type="button" data-join="smooth">Smooth</button>
+      </div>
+      <p class="sub" id="joinNote"></p>
+      <div class="rows" id="joinRows"></div>
+    </section>
+
+    <section>
+      <h2>Inner layer</h2>
+      <p class="sub">A closed, smooth inner surface, like blown glass. It ignores surface textures. Rounding softens the inside so it doesn't follow every edge of the outside; the wall then thickens at corners and in narrow parts.</p>
+      <div class="rows" id="shellRows"></div>
+      <div class="checks"><label><input type="checkbox" id="cut"> Cut away the front half</label></div>
+    </section>
+
+    <section>
+      <h2>Display</h2>
+      <div class="seg" id="matSeg" role="group" aria-label="Material">
+        <button type="button" data-mat="glass">Glass</button>
+        <button type="button" data-mat="zebra">Zebra</button>
+        <button type="button" data-mat="clay">Clay</button>
+      </div>
+      <p class="sub" id="matNote"></p>
+      <div class="seg" id="detailSeg" role="group" aria-label="Mesh detail">
+        <button type="button" data-res="48">Draft</button>
+        <button type="button" data-res="80">Medium</button>
+        <button type="button" data-res="120">Fine</button>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" id="spin"> Turntable</label>
+        <label><input type="checkbox" id="ghost"> Outline parts 2–4 when selected</label>
+      </div>
+    </section>
+    <div class="config" id="config"></div>
+  </aside>
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+// MATH-START
+const MAXP=4;
+// One record per part, filled by prepare(): placement, deform and profile parameters (see partDist)
+const PP=[];
+let SKIPTEX=false, TEXPAD=0, np=0, JM=3, JR=0.1, SHELL=0, ROUND=0, BASE=0, VARY=0, YC=0, YH=1, CUT=false, NEPS=0;   // op: 0 add, 1 subtract, 2 intersect. JM: 0 sharp, 1 round, 2 chamfer, 3 smooth
+
+// Improved Perlin noise (Ken Perlin, 2002), for dimples and wall variation
+const perm=new Uint8Array(512);
+(()=>{ const p=new Uint8Array(256); for(let i=0;i<256;i++) p[i]=i; let s=1337;
+  for(let i=255;i>0;i--){ s=(s*16807)%2147483647; const j=s%(i+1); const t=p[i]; p[i]=p[j]; p[j]=t; }
+  for(let i=0;i<512;i++) perm[i]=p[i&255]; })();
+const fade=t=>t*t*t*(t*(t*6-15)+10), lerp=(t,a,b)=>a+t*(b-a);
+function grad(h,x,y,z){ h&=15; const u=h<8?x:y, v=h<4?y:(h===12||h===14?x:z); return ((h&1)?-u:u)+((h&2)?-v:v); }
+function perlin(x,y,z){
+  let X=Math.floor(x), Y=Math.floor(y), Z=Math.floor(z);
+  x-=X; y-=Y; z-=Z; X&=255; Y&=255; Z&=255;
+  const u=fade(x), v=fade(y), w=fade(z);
+  const A=perm[X]+Y, AA=perm[A]+Z, AB=perm[A+1]+Z, B=perm[X+1]+Y, BA=perm[B]+Z, BB=perm[B+1]+Z;
+  return lerp(w, lerp(v, lerp(u, grad(perm[AA],x,y,z), grad(perm[BA],x-1,y,z)), lerp(u, grad(perm[AB],x,y-1,z), grad(perm[BB],x-1,y-1,z))),
+                 lerp(v, lerp(u, grad(perm[AA+1],x,y,z-1), grad(perm[BA+1],x-1,y,z-1)), lerp(u, grad(perm[AB+1],x,y-1,z-1), grad(perm[BB+1],x-1,y-1,z-1))));
+}
+
+// Trilinear lookup in a mesh distance grid; outside the grid, add the distance to the grid box
+function sdfSample(S,x,y,z){
+  const gx=(x-S.ox)/S.h, gy=(y-S.oy)/S.h, gz=(z-S.oz)/S.h;
+  const mx=S.nx-1.000001, my=S.ny-1.000001, mz=S.nz-1.000001;
+  const cx=gx<0?0:(gx>mx?mx:gx), cy=gy<0?0:(gy>my?my:gy), cz=gz<0?0:(gz>mz?mz:gz);
+  const dx=(gx-cx)*S.h, dy=(gy-cy)*S.h, dz=(gz-cz)*S.h;
+  const out=(dx!==0||dy!==0||dz!==0)?Math.sqrt(dx*dx+dy*dy+dz*dz):0;
+  const i=cx|0, j=cy|0, k=cz|0, fx=cx-i, fy=cy-j, fz=cz-k;
+  const D=S.data, sx=S.nx, sxy=S.nx*S.ny, q=i+sx*j+sxy*k;
+  const c00=D[q]+(D[q+1]-D[q])*fx, c10=D[q+sx]+(D[q+sx+1]-D[q+sx])*fx;
+  const c01=D[q+sxy]+(D[q+sxy+1]-D[q+sxy])*fx, c11=D[q+sxy+sx]+(D[q+sxy+sx+1]-D[q+sxy+sx])*fx;
+  const c0=c00+(c10-c00)*fy, c1=c01+(c11-c01)*fy;
+  return c0+(c1-c0)*fz+out;
+}
+
+// Approximate signed distance to part i. The point is taken into the part's frame, then the deformations are undone
+// in reverse (bend, twist, taper and bulge), so the profile is evaluated on the undeformed shape.
+// Profile: superquadric with exponents that change from base to top, and separate half-widths on each side.
+// G = F^(ε₁/2) equals 1 on the surface; (G − 1)/|∇G| is a first-order distance estimate.
+function partDist(i,x,y,z){
+  const q=PP[i];
+  const px=x-q.x, py=y-q.y, pz=z-q.z;
+  let lx=q.m0*px+q.m1*py+q.m2*pz, ly=q.m3*px+q.m4*py+q.m5*pz, lz=q.m6*px+q.m7*py+q.m8*pz;
+  let fac=1;
+  if(q.k!==0){   // unbend: the height axis follows an arc of curvature k in the bend plane
+    const bx=q.cb*lx+q.sb*lz, bz=-q.sb*lx+q.cb*lz;
+    const Rb=1/q.k, s=Rb>0?1:-1, A=Math.abs(Rb), ex=bx-Rb, r=Math.sqrt(ex*ex+ly*ly);
+    const th=Math.atan2(ly,-s*ex), nx=Rb-s*r;
+    ly=A*th; fac=Math.min(1,r/A);
+    lx=q.cb*nx-q.sb*bz; lz=q.sb*nx+q.cb*bz;
+  }
+  const t=Math.max(-1,Math.min(1,ly/q.h));
+  if(q.tw!==0){ const a=-q.tw*t, c=Math.cos(a), s=Math.sin(a), nx=c*lx-s*lz; lz=s*lx+c*lz; lx=nx; }
+  let sc=1+q.taper*t+q.bulge*(1-t*t); if(sc<0.05) sc=0.05;
+  if(sc!==1){ lx/=sc; lz/=sc; if(sc<1) fac*=sc; }
+  let d;
+  const W=lx>=0?q.wR:q.wL, D=lz>=0?q.dF:q.dB;
+  if(q.kind===1){
+    const sx=W/q.ex, sy=q.h/q.ey, sz=D/q.ez;
+    d=sdfSample(q.sdf,lx/sx,ly/sy,lz/sz)*Math.min(sx,sy,sz);
+  } else {
+    const e1=ly>=0?q.e1t:q.e1b, e2=q.e2b+(q.e2t-q.e2b)*(t+1)*0.5;
+    const ax=Math.abs(lx)/W+1e-12, ay=Math.abs(ly)/q.h+1e-12, az=Math.abs(lz)/D+1e-12;
+    if(!q.ring){
+      const P2=2/e2, R21=e2/e1, Q1=2/e1, HE1=e1/2;
+      const px2=Math.pow(ax,P2), pz2=Math.pow(az,P2), A=px2+pz2;
+      const AR=Math.pow(A,R21), py1=Math.pow(ay,Q1), F=AR+py1;
+      if(!(F>1e-280)) d=-Math.min(W,q.h,D);
+      else {
+        const G=Math.pow(F,HE1);
+        if(!isFinite(G)) d=Math.sqrt(lx*lx+ly*ly+lz*lz);
+        else {
+          const kk=HE1*G/F, kA=A>1e-280?kk*R21*P2*AR/A:0;
+          const gx=kA*px2/ax/W, gz=kA*pz2/az/D, gy=kk*Q1*py1/ay/q.h;
+          const gl=Math.sqrt(gx*gx+gy*gy+gz*gz);
+          d = gl>1e-12 ? (G-1)/gl : Math.sqrt(lx*lx+ly*ly+lz*lz)*(1-1/G);
+        }
+      }
+    } else {   // supertoroid: a superellipse tube swept around a superellipse path
+      const qn=Math.pow(Math.pow(ax,2/e2)+Math.pow(az,2/e2),e2/2);
+      const ur=Math.abs(qn-q.qc)/q.tw2+1e-12;
+      const Gt=Math.pow(Math.pow(ur,2/e1)+Math.pow(ay,2/e1),e1/2);
+      d=(Gt-1)*Math.min(q.tw2*Math.min(W,D),q.h);
+    }
+  }
+  if(q.tex!==0&&!SKIPTEX){   // surface texture, as a displacement of the distance, scaled back to keep the field well-behaved
+    const N=q.texN, th=Math.atan2(lz,lx), rho=Math.sqrt(lx*lx+lz*lz), wm=Math.min(W,D);
+    let p;
+    if(q.tex===1) p=Math.cos(N*th);
+    else if(q.tex===2) p=Math.cos(N*Math.PI*t);
+    else if(q.tex===3) p=Math.cos(N*(th+1.6*t));
+    else { const fr=N*0.35; p=1.6*perlin(lx*fr+7.1,ly*fr,lz*fr-3.3); }
+    if(q.tex===1||q.tex===3){ const fa=Math.min(1,Math.max(0,(rho-0.2*wm)/(0.4*wm))); p*=fa*fa; }   // angular patterns fade out toward the axis
+    d=(d-q.texA*p)/q.texL;
+  }
+  return d*fac;
+}
+
+// Joins: union and intersection with sharp, round (hg_sdf), chamfer (hg_sdf) or smooth (cubic smooth min, C2)
+function uni(a,b){
+  if(JR<=0||JM===0) return a<b?a:b;
+  if(JM===1){ const ux=Math.max(JR-a,0), uy=Math.max(JR-b,0); return Math.max(JR,Math.min(a,b))-Math.sqrt(ux*ux+uy*uy); }
+  if(JM===2) return Math.min(Math.min(a,b),(a+b-JR)*Math.SQRT1_2);
+  const h=Math.max(JR-Math.abs(a-b),0)/JR; return Math.min(a,b)-h*h*h*JR/6;
+}
+function inter(a,b){ return -uni(-a,-b); }
+
+// Solid made of all parts
+function fSolid(x,y,z){
+  let acc=Infinity;
+  for(let i=0;i<np;i++){
+    const q=PP[i], op=q.op;
+    if(acc===Infinity){ acc=partDist(i,x,y,z); continue; }
+    if(op!==2){   // skip parts that are too far away to change the result
+      const dx=x-q.x, dy=y-q.y, dz=z-q.z, lb=Math.sqrt(dx*dx+dy*dy+dz*dz)-q.br;
+      if(lb>=JR+Math.max(op===0?acc:-acc,0)) continue;
+    }
+    const d=partDist(i,x,y,z);
+    acc = op===0 ? uni(acc,d) : (op===2 ? inter(acc,d) : inter(acc,-d));
+  }
+  return acc;
+}
+// Full field: solid, then the inner layer, then the optional section cut.
+// The inner layer offsets a blurred copy of the field (average over four points at distance ROUND). Blurring a distance
+// field raises it at corners and in narrow parts, so the cavity comes out rounder than the outside and the wall thicker
+// there, as in blown glass. BASE adds weight toward the bottom; VARY adds slow, uneven variation.
+function fAll(x,y,z,cut){
+  let v=fSolid(x,y,z);
+  if(SHELL>0&&v<Math.max(0,(ROUND-SHELL)*0.5)+0.002){
+    // The inner surface ignores surface textures, so it stays smooth; TEXPAD keeps it clear of the deepest grooves
+    SKIPTEX=TEXPAD>0;
+    const vsm=SKIPTEX?fSolid(x,y,z):v;
+    let vs=vsm;
+    if(ROUND>0){ const r=ROUND*0.57735; vs=(fSolid(x+r,y+r,z+r)+fSolid(x+r,y-r,z-r)+fSolid(x-r,y+r,z-r)+fSolid(x-r,y-r,z+r))*0.25; if(vs<vsm) vs=vsm; }   // tetrahedral average; never closer to the outside than the smooth surface
+    SKIPTEX=false;
+    vs+=TEXPAD;
+    let th=SHELL;
+    if(BASE>0){ const b=Math.min(1,Math.max(0,(0.35-(y-YC)/YH)/1.35)); th+=BASE*b*b; }
+    if(VARY>0) th+=VARY*(0.5+perlin(x*1.7+3.1,y*1.7+0.7,z*1.7-2.3));
+    const w=-vs-th; if(w>v) v=w;
+  }
+  if(cut&&z>v) v=z;
+  return v;
+}
+function f(x,y,z){ return fAll(x,y,z,CUT); }
+
+// Box that contains the surface: bounding spheres of the added parts, then tightened by a coarse pass
+function bounds(){
+  const b=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<np;i++){
+    const q=PP[i]; if(i>0&&q.op!==0) continue;
+    const R=q.br+JR+0.05;
+    b[0]=Math.min(b[0],q.x-R); b[1]=Math.min(b[1],q.y-R); b[2]=Math.min(b[2],q.z-R);
+    b[3]=Math.max(b[3],q.x+R); b[4]=Math.max(b[4],q.y+R); b[5]=Math.max(b[5],q.z+R);
+  }
+  for(let a=0;a<3;a++){ b[a]=Math.max(b[a],-3); b[a+3]=Math.min(b[a+3],3); }
+  const Nc=24, hx=(b[3]-b[0])/Nc, hy=(b[4]-b[1])/Nc, hz=(b[5]-b[2])/Nc, hm=Math.max(hx,hy,hz);
+  const t=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+  for(let k=0;k<=Nc;k++){ const z=b[2]+k*hz;
+    for(let j=0;j<=Nc;j++){ const y=b[1]+j*hy;
+      for(let i=0;i<=Nc;i++){ const x=b[0]+i*hx;
+        if(fSolid(x,y,z)<hm){ if(x<t[0])t[0]=x; if(y<t[1])t[1]=y; if(z<t[2])t[2]=z; if(x>t[3])t[3]=x; if(y>t[4])t[4]=y; if(z>t[5])t[5]=z; } } } }
+  if(t[0]===Infinity) return b;
+  const m=1.6*hm;
+  for(let a=0;a<3;a++){ b[a]=Math.max(b[a],t[a]-m); b[a+3]=Math.min(b[a+3],t[a+3]+m); }
+  return b;
+}
+
+// Compile one part's settings into the record partDist reads. rot is a 3x3 matrix (columns: part axes), rec a mesh record.
+function compilePart(p,i,rot,rec){
+  const r=x=>x*Math.PI/180, k=p.bend!==0?r(p.bend)/(2*p.h):0;
+  const wR=p.w*(1+p.ax), wL=p.w*(1-p.ax), dF=p.d*(1+p.az), dB=p.d*(1-p.az);
+  const wmax=Math.max(wR,wL), dmax=Math.max(dF,dB), grow=1+Math.abs(p.taper)+Math.max(0,p.bulge);
+  const tex=['none','flutes','rings','spiral','dimples'].indexOf(p.tex);
+  const wmin=Math.min(wR,wL,dF,dB);
+  const q={op:i===0?0:['add','sub','inter'].indexOf(p.op), kind:rec?1:0, x:p.x,y:p.y,z:p.z,
+    m0:rot[0],m1:rot[1],m2:rot[2],m3:rot[3],m4:rot[4],m5:rot[5],m6:rot[6],m7:rot[7],m8:rot[8],
+    h:p.h, wR,wL,dF,dB, e1t:p.e1t,e1b:p.e1b,e2t:p.e2t,e2b:p.e2b, taper:p.taper,bulge:p.bulge,tw:r(p.twist),
+    k, cb:Math.cos(r(p.bendDir)), sb:Math.sin(r(p.bendDir)),
+    ring:!!p.ring&&!rec, qc:(1+p.hole)/2, tw2:(1-p.hole)/2,
+    tex:Math.max(0,tex), texN:p.texN, texA:p.texA, texL:1+p.texA*p.texN*(1/Math.max(0.05,wmin)+Math.PI/p.h)*0.8,
+    br:Math.sqrt((wmax*wmax+dmax*dmax)*grow*grow+p.h*p.h)*(k!==0?1.42:1)+(tex>0?p.texA:0),
+    sdf:rec?rec.sdf:null, ex:rec?rec.ex:1, ey:rec?rec.ey:1, ez:rec?rec.ez:1};
+  if(q.op<0) q.op=0;
+  return q;
+}
+
+// Naive surface nets with normals taken from the field gradient
+let vals=new Float32Array(0), cells=new Int32Array(0);
+const EDGES=[0,1, 2,3, 4,5, 6,7, 0,2, 1,3, 4,6, 5,7, 0,4, 1,5, 2,6, 3,7];
+const CX=[0,1,0,1,0,1,0,1], CY=[0,0,1,1,0,0,1,1], CZ=[0,0,0,0,1,1,1,1];
+let done=new Uint32Array(0), gen=0;
+function polygonize(res,fitShell){
+  const b=bounds();
+  const ex=b[3]-b[0], ey=b[4]-b[1], ez=b[5]-b[2];
+  let h=Math.max(ex,ey,ez)/res;
+  if(fitShell&&SHELL>0) h=Math.max(Math.min(h,SHELL/2),Math.max(ex,ey,ez)/150);   // keep at least ~2 cells across the thinnest wall
+  const nx=Math.ceil(ex/h)+2, ny=Math.ceil(ey/h)+2, nz=Math.ceil(ez/h)+2;
+  const ox=b[0]-h, oy=b[1]-h, oz=b[2]-h;
+  const sx=nx+1, sy=ny+1, sz=nz+1, sxy=sx*sy, ns=sx*sy*sz;
+  if(vals.length<ns){ vals=new Float32Array(ns); done=new Uint32Array(ns); gen=0; }
+  gen++;
+  // Narrow band: evaluate a coarse lattice every B cells; blocks whose corners are all far from the surface get a constant
+  const B=4, cxn=Math.ceil(nx/B), cyn=Math.ceil(ny/B), czn=Math.ceil(nz/B);
+  const cv0=new Float32Array((cxn+1)*(cyn+1)*(czn+1)), thr=1.3*0.866*B*h;   // part estimates are lower bounds of distance, so half the block diagonal suffices (with margin)
+  const cidx=(a,b2,c)=>a+(cxn+1)*(b2+(cyn+1)*c), node=(c,n)=>Math.min(c*B,n);
+  for(let c=0;c<=czn;c++) for(let bb=0;bb<=cyn;bb++) for(let a=0;a<=cxn;a++){
+    const i=node(a,nx), j=node(bb,ny), k=node(c,nz), v=f(ox+i*h,oy+j*h,oz+k*h);
+    cv0[cidx(a,bb,c)]=v; vals[i+sx*(j+sy*k)]=v; done[i+sx*(j+sy*k)]=gen;
+  }
+  const evalBlocks=[];
+  for(let c=0;c<czn;c++) for(let bb=0;bb<cyn;bb++) for(let a=0;a<cxn;a++){
+    let mn=Infinity, pos=0, neg=0;
+    for(let m=0;m<8;m++){ const v=cv0[cidx(a+(m&1),bb+((m>>1)&1),c+((m>>2)&1))]; if(v<0) neg++; else pos++; const av=Math.abs(v); if(av<mn) mn=av; }
+    const i0=a*B, j0=bb*B, k0=c*B, i1=Math.min(i0+B,nx), j1=Math.min(j0+B,ny), k1=Math.min(k0+B,nz);
+    if((pos===8||neg===8)&&mn>thr){
+      const fill=neg===8?-thr:thr;
+      for(let k=k0;k<=k1;k++) for(let j=j0;j<=j1;j++){ let q=i0+sx*(j+sy*k); for(let i=i0;i<=i1;i++,q++) if(done[q]!==gen) vals[q]=fill; }
+    } else evalBlocks.push(i0,j0,k0,i1,j1,k1);
+  }
+  for(let e=0;e<evalBlocks.length;e+=6){
+    const i0=evalBlocks[e], j0=evalBlocks[e+1], k0=evalBlocks[e+2], i1=evalBlocks[e+3], j1=evalBlocks[e+4], k1=evalBlocks[e+5];
+    for(let k=k0;k<=k1;k++){ const z=oz+k*h;
+      for(let j=j0;j<=j1;j++){ const y=oy+j*h; let q=i0+sx*(j+sy*k);
+        for(let i=i0;i<=i1;i++,q++){ if(done[q]===gen) continue; vals[q]=f(ox+i*h,y,z); done[q]=gen; } } }
+  }
+  // Close the mesh at the grid boundary
+  for(let k=0;k<sz;k++) for(let j=0;j<sy;j++){ const edge=(k===0||k===nz||j===0||j===ny); let q=sx*(j+sy*k);
+    if(edge){ for(let i=0;i<sx;i++,q++) if(!(vals[q]>=1e-4)) vals[q]=1e-4; }
+    else { if(!(vals[q]>=1e-4)) vals[q]=1e-4; q+=nx; if(!(vals[q]>=1e-4)) vals[q]=1e-4; } }
+
+  if(cells.length<nx*ny*nz) cells=new Int32Array(nx*ny*nz);
+  const off=[0,1,sx,sx+1,sxy,sxy+1,sxy+sx,sxy+sx+1], cv=new Float64Array(8);
+  const pos=[]; let nv=0;
+  for(let k=0;k<nz;k++) for(let j=0;j<ny;j++){
+    let s0=sx*(j+sy*k), c0=nx*(j+ny*k);
+    for(let i=0;i<nx;i++,s0++,c0++){
+      let mask=0;
+      for(let m=0;m<8;m++){ const v=vals[s0+off[m]]; cv[m]=v; if(v<0) mask|=1<<m; }
+      if(mask===0||mask===255){ cells[c0]=-1; continue; }
+      let ax=0, ay=0, az=0, cnt=0;
+      for(let e=0;e<24;e+=2){
+        const a=EDGES[e], c=EDGES[e+1];
+        if(((mask>>a)&1)===((mask>>c)&1)) continue;
+        const t=cv[a]/(cv[a]-cv[c]);
+        ax+=CX[a]+t*(CX[c]-CX[a]); ay+=CY[a]+t*(CY[c]-CY[a]); az+=CZ[a]+t*(CZ[c]-CZ[a]); cnt++;
+      }
+      pos.push(ox+(i+ax/cnt)*h, oy+(j+ay/cnt)*h, oz+(k+az/cnt)*h);
+      cells[c0]=nv++;
+    }
+  }
+  const idx=[];
+  const S=(i,j,k)=>i+sx*(j+sy*k), C=(i,j,k)=>cells[i+nx*(j+ny*k)];
+  const quad=(a,b2,c,d,flip)=>{ if(flip) idx.push(a,d,c,a,c,b2); else idx.push(a,b2,c,a,c,d); };
+  for(let k=1;k<nz;k++) for(let j=1;j<ny;j++) for(let i=0;i<nx;i++){
+    const va=vals[S(i,j,k)], vb=vals[S(i+1,j,k)]; if((va<0)===(vb<0)) continue;
+    quad(C(i,j-1,k-1),C(i,j,k-1),C(i,j,k),C(i,j-1,k),!(va<0));
+  }
+  for(let k=1;k<nz;k++) for(let j=0;j<ny;j++) for(let i=1;i<nx;i++){
+    const va=vals[S(i,j,k)], vb=vals[S(i,j+1,k)]; if((va<0)===(vb<0)) continue;
+    quad(C(i-1,j,k-1),C(i-1,j,k),C(i,j,k),C(i,j,k-1),!(va<0));
+  }
+  for(let k=0;k<nz;k++) for(let j=1;j<ny;j++) for(let i=1;i<nx;i++){
+    const va=vals[S(i,j,k)], vb=vals[S(i,j,k+1)]; if((va<0)===(vb<0)) continue;
+    quad(C(i-1,j-1,k),C(i,j-1,k),C(i,j,k),C(i-1,j,k),!(va<0));
+  }
+  // Normals: tetrahedral gradient of the field (4 evaluations per vertex). Mesh parts use a step of at least
+  // a fraction of their voxel, which smooths over the cell boundaries of the trilinear grid.
+  const P=new Float32Array(pos), N=new Float32Array(pos.length), e=Math.max(h*0.4,NEPS);
+  for(let q=0;q<P.length;q+=3){
+    const x=P[q], y=P[q+1], z=P[q+2];
+    const a=f(x+e,y-e,z-e), b2=f(x-e,y-e,z+e), c=f(x-e,y+e,z-e), d=f(x+e,y+e,z+e);
+    const gx=a-b2-c+d, gy=-a-b2+c+d, gz=-a+b2-c+d;
+    const l=Math.hypot(gx,gy,gz)||1; N[q]=gx/l; N[q+1]=gy/l; N[q+2]=gz/l;
+  }
+  return { P, N, I:new Uint32Array(idx), nx, ny, nz, b };
+}
+
+// ---------- uploaded meshes ----------
+// Center a triangle soup (9 floats per triangle) and scale it so its largest half-extent is 1
+function normalizeTris(T){
+  let x0=Infinity,y0=Infinity,z0=Infinity,x1=-Infinity,y1=-Infinity,z1=-Infinity;
+  for(let i=0;i<T.length;i+=3){ const x=T[i],y=T[i+1],z=T[i+2]; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; if(z<z0)z0=z; if(z>z1)z1=z; }
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, cz=(z0+z1)/2, s=1/Math.max((x1-x0)/2,(y1-y0)/2,(z1-z0)/2,1e-12);
+  for(let i=0;i<T.length;i+=3){ T[i]=(T[i]-cx)*s; T[i+1]=(T[i+1]-cy)*s; T[i+2]=(T[i+2]-cz)*s; }
+  return {ex:(x1-x0)/2*s, ey:(y1-y0)/2*s, ez:(z1-z0)/2*s};
+}
+// Signed distance grid from a triangle soup: exact distances in a thin band around each triangle,
+// spread outward by a vector distance transform, with inside/outside from ray parity along x, y and z (majority vote)
+function buildSDF(T,ex,ey,ez,res){
+  const pad=0.2, h=2*(Math.max(ex,ey,ez)+pad)/res;
+  const nx=Math.ceil(2*(ex+pad)/h)+1, ny=Math.ceil(2*(ey+pad)/h)+1, nz=Math.ceil(2*(ez+pad)/h)+1;
+  const ox=-(nx-1)*h/2, oy=-(ny-1)*h/2, oz=-(nz-1)*h/2;
+  const sx=nx, sxy=nx*ny, n=nx*ny*nz, nt=T.length/9;
+  const d2=new Float32Array(n).fill(Infinity), cp=new Float32Array(n*3);
+  const band=1.6*h, Bv=Math.ceil(band/h);
+  for(let t=0;t<nt;t++){
+    const o=t*9, ax=T[o],ay=T[o+1],az=T[o+2],bx=T[o+3],by=T[o+4],bz=T[o+5],cx=T[o+6],cy=T[o+7],cz=T[o+8];
+    const ux=bx-ax,uy=by-ay,uz=bz-az,vx=cx-ax,vy=cy-ay,vz=cz-az;
+    let pnx=uy*vz-uz*vy, pny=uz*vx-ux*vz, pnz=ux*vy-uy*vx; const pl=Math.sqrt(pnx*pnx+pny*pny+pnz*pnz);
+    if(!(pl>1e-14)) continue;
+    pnx/=pl; pny/=pl; pnz/=pl; const pd=pnx*ax+pny*ay+pnz*az;
+    const i0=Math.max(0,Math.floor((Math.min(ax,bx,cx)-ox)/h)-Bv), i1=Math.min(nx-1,Math.ceil((Math.max(ax,bx,cx)-ox)/h)+Bv);
+    const j0=Math.max(0,Math.floor((Math.min(ay,by,cy)-oy)/h)-Bv), j1=Math.min(ny-1,Math.ceil((Math.max(ay,by,cy)-oy)/h)+Bv);
+    const k0=Math.max(0,Math.floor((Math.min(az,bz,cz)-oz)/h)-Bv), k1=Math.min(nz-1,Math.ceil((Math.max(az,bz,cz)-oz)/h)+Bv);
+    const d00=ux*ux+uy*uy+uz*uz, d01=ux*vx+uy*vy+uz*vz, d11=vx*vx+vy*vy+vz*vz;
+    for(let k=k0;k<=k1;k++){ const z=oz+k*h;
+      for(let j=j0;j<=j1;j++){ const y=oy+j*h;
+        const c=pny*y+pnz*z-pd; let lo=i0, hi=i1;
+        if(Math.abs(pnx)>1e-9){ let a=(-band-c)/pnx, b2=(band-c)/pnx; if(a>b2){ const s=a; a=b2; b2=s; }
+          lo=Math.max(i0,Math.ceil((a-ox)/h)); hi=Math.min(i1,Math.floor((b2-ox)/h)); }
+        else if(Math.abs(c)>band) continue;
+        for(let i=lo;i<=hi;i++){
+          const x=ox+i*h, wx=x-ax, wy=y-ay, wz=z-az;
+          // closest point on triangle (Ericson, Real-Time Collision Detection 5.1.5)
+          const d1=ux*wx+uy*wy+uz*wz, d2_=vx*wx+vy*wy+vz*wz;
+          let s,tt;
+          if(d1<=0&&d2_<=0){ s=0; tt=0; }
+          else {
+            const d3=d1-d00, d4=d2_-d01;            // dot products with p − b
+            if(d3>=0&&d4<=d3){ s=1; tt=0; }
+            else {
+              const vc=d1*d4-d3*d2_;
+              if(vc<=0&&d1>=0&&d3<=0){ s=d1/(d1-d3); tt=0; }
+              else {
+                const d5=d1-d01, d6=d2_-d11;        // dot products with p − c
+                if(d6>=0&&d5<=d6){ s=0; tt=1; }
+                else {
+                  const vb=d5*d2_-d1*d6;
+                  if(vb<=0&&d2_>=0&&d6<=0){ s=0; tt=d2_/(d2_-d6); }
+                  else {
+                    const va=d3*d6-d5*d4;
+                    if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0){ const w=(d4-d3)/((d4-d3)+(d5-d6)); s=1-w; tt=w; }
+                    else { const den=1/(va+vb+vc); s=vb*den; tt=vc*den; }
+                  }
+                }
+              }
+            }
+          }
+          const qx=ax+ux*s+vx*tt, qy=ay+uy*s+vy*tt, qz=az+uz*s+vz*tt;
+          const ddx=x-qx, ddy=y-qy, ddz=z-qz, dd=ddx*ddx+ddy*ddy+ddz*ddz, q=i+sx*j+sxy*k;
+          if(dd<d2[q]){ d2[q]=dd; cp[3*q]=qx; cp[3*q+1]=qy; cp[3*q+2]=qz; }
+        }
+      }
+    }
+  }
+  // Vector distance transform: each voxel adopts a neighbour's closest point when that point is nearer
+  const FW=[];
+  for(let dk=-1;dk<=1;dk++) for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++) if(dk<0||(dk===0&&(dj<0||(dj===0&&di<0)))) FW.push([di,dj,dk]);
+  const BW=FW.map(([a,b2,c])=>[-a,-b2,-c]);
+  const sweep=(nbs,dir)=>{
+    const ks=dir>0?0:nz-1, ke=dir>0?nz:-1, js=dir>0?0:ny-1, je=dir>0?ny:-1, is=dir>0?0:nx-1, ie=dir>0?nx:-1;
+    for(let k=ks;k!==ke;k+=dir){ const z=oz+k*h;
+      for(let j=js;j!==je;j+=dir){ const y=oy+j*h;
+        for(let i=is;i!==ie;i+=dir){ const x=ox+i*h, q=i+sx*j+sxy*k;
+          let best=d2[q];
+          for(let m=0;m<nbs.length;m++){
+            const ni=i+nbs[m][0], nj=j+nbs[m][1], nk=k+nbs[m][2];
+            if(ni<0||nj<0||nk<0||ni>=nx||nj>=ny||nk>=nz) continue;
+            const qn=ni+sx*nj+sxy*nk; if(d2[qn]===Infinity) continue;
+            const px=x-cp[3*qn], py=y-cp[3*qn+1], pz=z-cp[3*qn+2], dd=px*px+py*py+pz*pz;
+            if(dd<best){ best=dd; d2[q]=dd; cp[3*q]=cp[3*qn]; cp[3*q+1]=cp[3*qn+1]; cp[3*q+2]=cp[3*qn+2]; }
+          }
+        }
+      }
+    }
+  };
+  sweep(FW,1); sweep(BW,-1); sweep(FW,1); sweep(BW,-1);
+
+  // Inside or outside: count surface crossings along rows in each axis direction
+  const votes=new Uint8Array(n), dims=[nx,ny,nz], org=[ox,oy,oz], strides=[1,sx,sxy];
+  const jit=[0.000618034*h,0.000414214*h,0.000732051*h];
+  for(let A=0;A<3;A++){
+    const Bx=(A+1)%3, Cx=(A+2)%3, nB=dims[Bx], nC=dims[Cx];
+    const rows=new Array(nB*nC);
+    for(let t=0;t<nt;t++){
+      const o=t*9;
+      const aA=T[o+A], aB=T[o+Bx], aC=T[o+Cx], bA=T[o+3+A], bB=T[o+3+Bx], bC=T[o+3+Cx], cA=T[o+6+A], cB=T[o+6+Bx], cC=T[o+6+Cx];
+      const area=(bB-aB)*(cC-aC)-(bC-aC)*(cB-aB);
+      if(Math.abs(area)<1e-18) continue;
+      const bi0=Math.max(0,Math.ceil((Math.min(aB,bB,cB)-org[Bx]-jit[Bx])/h)), bi1=Math.min(nB-1,Math.floor((Math.max(aB,bB,cB)-org[Bx]-jit[Bx])/h));
+      const ci0=Math.max(0,Math.ceil((Math.min(aC,bC,cC)-org[Cx]-jit[Cx])/h)), ci1=Math.min(nC-1,Math.floor((Math.max(aC,bC,cC)-org[Cx]-jit[Cx])/h));
+      for(let ci=ci0;ci<=ci1;ci++){ const PC=org[Cx]+ci*h+jit[Cx];
+        for(let bi=bi0;bi<=bi1;bi++){ const PB=org[Bx]+bi*h+jit[Bx];
+          const wa=((bB-PB)*(cC-PC)-(bC-PC)*(cB-PB))/area; if(wa<0) continue;
+          const wb=((cB-PB)*(aC-PC)-(cC-PC)*(aB-PB))/area; if(wb<0) continue;
+          const wc=1-wa-wb; if(wc<0) continue;
+          const r=bi+nB*ci; (rows[r]||(rows[r]=[])).push(wa*aA+wb*bA+wc*cA);
+        }
+      }
+    }
+    for(let ci=0;ci<nC;ci++) for(let bi=0;bi<nB;bi++){
+      const list=rows[bi+nB*ci]; if(!list) continue;
+      list.sort((p,q)=>p-q);
+      let ptr=0; const base=bi*strides[Bx]+ci*strides[Cx];
+      for(let ai=0;ai<dims[A];ai++){
+        const pa=org[A]+ai*h+jit[A];
+        while(ptr<list.length&&list[ptr]<pa) ptr++;
+        if(ptr&1) votes[base+ai*strides[A]]++;
+      }
+    }
+  }
+  const data=new Float32Array(n), far=2*(Math.max(ex,ey,ez)+pad);
+  for(let q=0;q<n;q++){ const d=d2[q]===Infinity?far:Math.sqrt(d2[q]); data[q]=votes[q]>=2?-d:d; }
+  return {nx,ny,nz,ox,oy,oz,h,data};
+}
+// MATH-END
+
+const $=id=>document.getElementById(id);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const D2R=Math.PI/180;
+const OPS=['add','sub','inter'], SYM={add:'+',sub:'−',inter:'∩'}, OPNAME={add:'add',sub:'subtract',inter:'intersect'};
+const SDF_RES=100, MAX_TRIS=600000, MAX_MB=80;
+
+const PART_DEFAULTS={kind:'sq',op:'add',e1t:0.3,e1b:0.3,e2t:0.3,e2b:0.3,w:0.5,h:0.5,d:0.5,ax:0,az:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,
+  taper:0,bulge:0,twist:0,bend:0,bendDir:0,ring:false,hole:0.5,tex:'none',texN:12,texA:0.025};
+const newPart=o=>{ const p=Object.assign({},PART_DEFAULTS,o);
+  if(o.e1!==undefined){ p.e1t=p.e1b=o.e1; } if(o.e2!==undefined){ p.e2t=p.e2b=o.e2; } delete p.e1; delete p.e2; return p; };
+const PRESETS={
+  "Glass block":{join:'smooth',r:0.1,shell:0,parts:[{e1:0.18,e2:0.18,w:0.85,h:0.85,d:0.36}]},
+  "Crystal":{join:'round',r:0.03,shell:0,parts:[
+    {e1:0.12,e2:0.12,w:0.7,h:0.95,d:0.7},
+    {op:'inter',e1:1.7,e2:1.7,w:1.25,h:1.6,d:1.25}]},
+  "Twisted vase":{join:'smooth',r:0.06,shell:0.05,round:0.22,base:0.2,vary:0,parts:[
+    {e1t:0.55,e1b:0.35,e2:0.3,w:0.55,h:1,d:0.55,taper:-0.35,bulge:0.15,twist:80}]},
+  "Ring":{join:'smooth',r:0.1,shell:0,parts:[
+    {ring:true,hole:0.55,e1:0.4,e2:1,w:0.95,h:0.24,d:0.95}]}
+};
+const JOIN_NOTES={
+  sharp:"A plain Boolean. The edge where parts meet is a hard crease, and reflections break there.",
+  round:"A circular fillet of radius r. Tangent continuous (G1), so the stripe pattern still kinks at the fillet edge.",
+  chamfer:"A flat 45° bevel of width r between the parts.",
+  smooth:"A cubic blend whose curvature stays continuous, close to G2. Reflections flow across the join without a kink."
+};
+const OP_NOTES={
+  base:"Part 1 is the base body.",
+  model:"Part 1 is your model, rebuilt as a distance field. Size scales it, and the deform and surface settings apply along its height.",
+  add:"Adds this part to the solid.",
+  sub:"Cuts this part out of the solid.",
+  inter:"Keeps only the volume shared with this part."
+};
+const MAT_NOTES={
+  glass:"Clear glass in a studio: a softbox above and strip lights at the sides. The reflections slide over the surface as it turns, which shows its curvature.",
+  zebra:"Reflection lines, as in Rhino's Zebra analysis. A stripe that kinks marks a G1 join; a stripe that bends smoothly marks G2.",
+  clay:"Neutral grey with a clear coat, for reading the form."
+};
+
+const state={parts:[],sel:0,gizmo:false,join:'smooth',r:0.08,shell:0,round:0.2,base:0.12,vary:0,cut:false,material:'glass',detail:80,spin:!reduced,ghost:true,preset:null};
+let dirty=true, interacting=false, lastBounds=null, floorDirty=true;
+const models=[];   // uploaded models: {id,name,ext,up,buf,added,sdf,ex,ey,ez,tris}
+
+function loadPreset(name){
+  const p=PRESETS[name]; state.gizmo=false;
+  state.parts=p.parts.map(o=>newPart(o)); state.parts[0].op='add';
+  state.join=p.join; state.r=p.r; state.shell=p.shell; state.round=p.round??0.2; state.base=p.base??0.12; state.vary=p.vary??0; state.sel=0; state.preset=name;
+  syncUI(); updateGizmo(); dirty=true;
+}
+
+// ---------- controls ----------
+const controls=[];
+function addRow(parent,o){
+  const r=document.createElement('div'); r.className='row'+(o.sym?'':' wide');
+  r.innerHTML=`<label for="${o.id}"${o.sym?' class="sym"':''}>${o.label}</label><input type="range" id="${o.id}" min="${o.min}" max="${o.max}" step="${o.step}" aria-label="${o.aria||o.label}"><output for="${o.id}"></output>`;
+  parent.appendChild(r);
+  const input=r.querySelector('input'), out=r.querySelector('output'), d=o.digits??2;
+  const show=()=>{ input.value=o.get(); out.textContent=o.get().toFixed(d); };
+  input.addEventListener('input',()=>{ o.set(parseFloat(input.value)); out.textContent=o.get().toFixed(d); interacting=true; state.preset=null; updatePills(); updateConfig(); dirty=true; });
+  input.addEventListener('change',()=>{ interacting=false; dirty=true; });
+  controls.push(show);
+  return r;
+}
+const SP=()=>state.parts[state.sel];
+const partRow=(parent,key,label,sym,min,max,step,digits,aria)=>addRow(parent,{id:'p_'+key,label,sym,min,max,step,digits,aria,get:()=>SP()[key],set:v=>SP()[key]=v});
+partRow($('profileRows'),'e1t','ε₁ top',false,0.08,2.5,0.01,2,'Side profile exponent ε₁, top half');
+partRow($('profileRows'),'e1b','ε₁ base',false,0.08,2.5,0.01,2,'Side profile exponent ε₁, bottom half');
+partRow($('profileRows'),'e2t','ε₂ top',false,0.08,2.5,0.01,2,'Cross-section exponent ε₂ at the top');
+partRow($('profileRows'),'e2b','ε₂ base',false,0.08,2.5,0.01,2,'Cross-section exponent ε₂ at the base');
+partRow($('deformRows'),'taper','Taper',false,-0.9,0.9,0.01,2,'Taper: linear change of width along the height');
+partRow($('deformRows'),'bulge','Bulge',false,-0.8,0.8,0.01,2,'Bulge: belly when positive, waist when negative');
+partRow($('deformRows'),'twist','Twist °',false,-180,180,1,0,'Twist in degrees over the height');
+partRow($('deformRows'),'bend','Bend °',false,-180,180,1,0,'Bend in degrees over the height');
+partRow($('deformRows'),'bendDir','Bend dir °',false,-180,180,1,0,'Direction of the bend in degrees');
+partRow($('sizeRows'),'w','Width',false,0.05,1.5,0.01,2,'Half-width w');
+partRow($('sizeRows'),'h','Height',false,0.05,1.5,0.01,2,'Half-height h');
+partRow($('sizeRows'),'d','Depth',false,0.05,1.5,0.01,2,'Half-depth d');
+partRow($('sizeRows'),'ax','Right/left',false,-0.8,0.8,0.01,2,'Asymmetry: right half wider when positive');
+partRow($('sizeRows'),'az','Front/back',false,-0.8,0.8,0.01,2,'Asymmetry: front half deeper when positive');
+partRow($('ringRows'),'hole','Hole',false,0.05,0.9,0.01,2,'Size of the hole as a share of the width');
+partRow($('texRows'),'texN','Count',false,2,40,1,0,'Number of repeats');
+partRow($('texRows'),'texA','Depth',false,0.005,0.1,0.001,3,'Depth of the texture');
+addRow($('joinRows'),{id:'jr',label:'r',sym:true,aria:'Join radius r',min:0,max:0.4,step:0.005,digits:3,get:()=>state.r,set:v=>state.r=v});
+addRow($('shellRows'),{id:'shell',label:'Thickness',aria:'Minimum wall thickness',min:0,max:0.25,step:0.005,digits:3,get:()=>state.shell,set:v=>state.shell=v});
+addRow($('shellRows'),{id:'round',label:'Rounding',aria:'Rounding of the inner surface',min:0,max:0.45,step:0.005,digits:3,get:()=>state.round,set:v=>state.round=v});
+addRow($('shellRows'),{id:'base',label:'Base',aria:'Extra thickness toward the bottom',min:0,max:0.5,step:0.005,digits:3,get:()=>state.base,set:v=>state.base=v});
+addRow($('shellRows'),{id:'vary',label:'Variation',aria:'Uneven variation of the wall',min:0,max:0.1,step:0.002,digits:3,get:()=>state.vary,set:v=>state.vary=v});
+$('p_ring').onchange=e=>{ SP().ring=e.target.checked; state.preset=null; syncUI(); dirty=true; };
+$('texSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ SP().tex=b.dataset.tex; state.preset=null; syncUI(); dirty=true; });
+$('resetPos').onclick=()=>{ const p=SP(); p.x=p.y=p.z=0; state.preset=null; syncUI(); updateGizmo(); dirty=true; };
+$('resetRot').onclick=()=>{ const p=SP(); p.rx=p.ry=p.rz=0; state.preset=null; syncUI(); updateGizmo(); dirty=true; };
+
+const pr=$('presets');
+Object.keys(PRESETS).forEach(name=>{
+  const b=document.createElement('button'); b.type='button'; b.className='pill'; b.textContent=name; b.dataset.name=name;
+  b.onclick=()=>loadPreset(name); pr.appendChild(b);
+});
+function updatePills(){
+  document.querySelectorAll('[data-name]').forEach(b=>{
+    const on=b.dataset.name===state.preset; b.setAttribute('aria-pressed',on);
+    if(b.parentElement.classList.contains('mine')) b.parentElement.classList.toggle('on',on);
+  });
+  const cur=currentModel(); $('upAxis').hidden=!cur;
+  if(cur) $('upSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.up===cur.up));
+}
+
+$('opSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(state.sel===0) return; SP().op=b.dataset.op; state.preset=null; syncUI(); dirty=true; });
+$('joinSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ state.join=b.dataset.join; state.preset=null; syncUI(); dirty=true; });
+$('matSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ state.material=b.dataset.mat; syncUI(); applyMaterial(); });
+$('detailSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ state.detail=+b.dataset.res; syncUI(); dirty=true; });
+$('cut').onchange=e=>{ state.cut=e.target.checked; dirty=true; };
+$('spin').onchange=e=>{ state.spin=e.target.checked; };
+$('ghost').onchange=e=>{ state.ghost=e.target.checked; updateGhost(); };
+
+function renderChips(){
+  const c=$('chips'); c.innerHTML='';
+  state.parts.forEach((p,i)=>{
+    const b=document.createElement('button'); b.type='button'; b.className='chip';
+    b.innerHTML=`${i+1}<span class="op" aria-hidden="true">${p.kind==='mesh'?'▲':SYM[p.op]}</span>`;
+    b.setAttribute('aria-label',`Part ${i+1}, ${p.kind==='mesh'?'your model':(i===0?'base':OPNAME[p.op])}`); b.setAttribute('aria-pressed',i===state.sel);
+    b.onclick=()=>{ state.sel=i; state.gizmo=true; syncUI(); updateGhost(); updateGizmo(); }; c.appendChild(b);
+  });
+  const add=document.createElement('button'); add.type='button'; add.className='chip add'; add.textContent='+';
+  add.setAttribute('aria-label','Add a part'); add.disabled=state.parts.length>=MAXP;
+  add.onclick=()=>{
+    const s=SP(), cl=v=>Math.max(-1.5,Math.min(1.5,v));
+    state.parts.push(newPart({x:cl(s.x+0.35),y:cl(s.y+0.35),z:cl(s.z),w:0.3,h:0.3,d:0.3}));
+    state.sel=state.parts.length-1; state.gizmo=true; state.preset=null; syncUI(); updateGizmo(); dirty=true;
+  };
+  c.appendChild(add);
+}
+$('removePart').onclick=()=>{
+  if(state.sel===0||state.parts.length<=1) return;
+  state.parts.splice(state.sel,1); state.sel=Math.min(state.sel,state.parts.length-1); state.preset=null; syncUI(); updateGizmo(); dirty=true;
+};
+
+function updateConfig(){
+  const counts={}; state.parts.forEach((p,i)=>{ const k=p.kind==='mesh'?'model':(i===0?'base':OPNAME[p.op]); counts[k]=(counts[k]||0)+1; });
+  const parts=Object.entries(counts).map(([k,n])=>`${n} ${k}`).join(', ');
+  $('config').textContent=`${state.parts.length} parts (${parts}) · ${state.join} join r = ${state.r.toFixed(3)} · inner layer ${state.shell>0?state.shell.toFixed(3):'off'}`;
+}
+function updatePosInfo(){
+  const p=SP(), f=v=>(Math.abs(v)<0.005?0:v).toFixed(2), g=v=>Math.round(v)+'°';
+  $('posInfo').textContent=`Part ${state.sel+1} at x ${f(p.x)}, y ${f(p.y)}, z ${f(p.z)} · turned ${g(p.rx)}, ${g(p.ry)}, ${g(p.rz)}`;
+}
+function syncUI(){
+  controls.forEach(fn=>fn());
+  const p=SP(), isMesh=p.kind==='mesh';
+  $('opSeg').querySelectorAll('button').forEach(b=>{ b.setAttribute('aria-pressed',state.sel>0&&b.dataset.op===p.op); b.disabled=state.sel===0; });
+  $('opNote').textContent=isMesh?OP_NOTES.model:(state.sel===0?OP_NOTES.base:OP_NOTES[p.op]);
+  $('profileBox').hidden=isMesh; $('ringBox').hidden=isMesh;
+  $('p_ring').checked=!!p.ring; $('ringRows').hidden=!p.ring;
+  $('texSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tex===p.tex)); $('texRows').hidden=p.tex==='none';
+  updatePosInfo();
+  $('joinSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.join===state.join));
+  $('joinNote').textContent=JOIN_NOTES[state.join];
+  $('matSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mat===state.material));
+  $('matNote').textContent=MAT_NOTES[state.material];
+  $('detailSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.res===state.detail));
+  renderChips();
+  const rm=$('removePart'); rm.hidden=state.sel===0; rm.textContent=`Remove part ${state.sel+1}`;
+  $('cut').checked=state.cut; $('spin').checked=state.spin; $('ghost').checked=state.ghost;
+  updatePills(); updateConfig();
+}
+
+// ---------- tabs ----------
+const tabs=[$('tabSamples'),$('tabMine'),$('tabLib')];
+function selectTab(t){
+  tabs.forEach(b=>{ const on=b===t; b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; $(b.getAttribute('aria-controls')).hidden=!on; });
+}
+tabs.forEach((b,i)=>{
+  b.onclick=()=>selectTab(b);
+  b.onkeydown=e=>{ if(e.key==='ArrowRight'||e.key==='ArrowLeft'){ const t=tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length]; selectTab(t); t.focus(); e.preventDefault(); } };
+});
+
+// ---------- compile parts into the field arrays ----------
+function prepare(){
+  np=state.parts.length; NEPS=0; PP.length=0;
+  const mtx=new THREE.Matrix4(), eul=new THREE.Euler();
+  let y0=Infinity, y1=-Infinity;
+  state.parts.forEach((p,i)=>{
+    const m=mtx.makeRotationFromEuler(eul.set(p.rx*D2R,p.ry*D2R,p.rz*D2R,'XYZ')).elements;
+    const rec=p.kind==='mesh'?models.find(r=>r.id===p.meshId):null;
+    const q=compilePart(p,i,[m[0],m[1],m[2],m[4],m[5],m[6],m[8],m[9],m[10]],rec&&rec.sdf?rec:null);
+    PP.push(q);
+    if(q.kind===1) NEPS=Math.max(NEPS,rec.sdf.h*Math.min(q.wR/q.ex,q.wL/q.ex,q.h/q.ey,q.dF/q.ez,q.dB/q.ez)*0.6);
+    if(q.op===0){ y0=Math.min(y0,p.y-p.h); y1=Math.max(y1,p.y+p.h); }
+  });
+  YC=(y0+y1)/2; YH=Math.max(0.1,(y1-y0)/2);
+  TEXPAD=PP.reduce((m,q)=>q.tex?Math.max(m,q.texA):m,0);
+  JM=['sharp','round','chamfer','smooth'].indexOf(state.join); JR=state.r; SHELL=state.shell; ROUND=state.round; BASE=state.base; VARY=state.vary; CUT=state.cut;
+}
+
+// ---------- theme ----------
+const tok=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const rgb=h=>{ h=h.replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16)); };
+
+// ---------- section inset ----------
+const sliceC=$('slice'), sctx=sliceC.getContext('2d'), offC=document.createElement('canvas'), octx=offC.getContext('2d');
+function drawSlice(N,b){
+  if(!b) return;
+  offC.width=N; offC.height=N;
+  const img=octx.createImageData(N,N), d=img.data;
+  const ci=rgb(tok('--slice-in')), co=rgb(tok('--slice-out')), cl=rgb(tok('--ink'));
+  const cx=(b[0]+b[3])/2, cy=(b[1]+b[4])/2, H=Math.max(b[3]-b[0],b[4]-b[1])/2*1.04, px=2*H/N;
+  let o=0;
+  for(let iy=0;iy<N;iy++){ const y=cy+H-(iy+0.5)*px;
+    for(let ix=0;ix<N;ix++){ const x=cx-H+(ix+0.5)*px;
+      const v=fAll(x,y,0,false), base=v<0?ci:co;
+      const line=Math.max(0,1-Math.abs(v)/(px*1.1));
+      for(let c=0;c<3;c++) d[o+c]=base[c]*(1-line)+cl[c]*line;
+      d[o+3]=255; o+=4;
+    }
+  }
+  octx.putImageData(img,0,0);
+  sctx.imageSmoothingEnabled=true; sctx.clearRect(0,0,300,300); sctx.drawImage(offC,0,0,300,300);
+}
+
+// ---------- 3D ----------
+const stage=$('stage'), view=$('view');
+let R,scene,cam,G,mesh,back,refl,edge,mats={},floor,floorTex,ghost,camDist=5.9, floorY=-1, footR=1, lastTilt=NaN;
+const camDir=new THREE.Vector3(0,1.35,5.6).normalize();
+try{
+  R=new THREE.WebGLRenderer({antialias:true});
+  R.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  R.outputEncoding=THREE.sRGBEncoding; R.toneMapping=THREE.ACESFilmicToneMapping; R.toneMappingExposure=1.0;
+  R.setClearColor(0xffffff,1);
+  view.appendChild(R.domElement);
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0xffffff);
+  cam=new THREE.PerspectiveCamera(34,1,0.1,100);
+
+  // Opaque white backdrop, so the glass transmits real pixels (and keeps its reflections) instead of empty canvas
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(40,24,12),new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide,toneMapped:false})));
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x7d8794,0.35));
+  const key=new THREE.DirectionalLight(0xffffff,0.95); key.position.set(-3,5,4); scene.add(key);
+  const fill=new THREE.DirectionalLight(0xffffff,0.25); fill.position.set(4,1,2); scene.add(fill);
+
+  // Reflection environment: a near-black studio with a top softbox and two tall strip lights.
+  // Glass and clear coat reflect the dark room at grazing angles, which draws the silhouette and edges.
+  const env=new THREE.Scene();
+  const roomGeo=new THREE.SphereGeometry(10,32,16), cols=[], pa=roomGeo.attributes.position;
+  for(let i=0;i<pa.count;i++){ const t=(pa.getY(i)/10+1)/2, c=0.012+0.07*t; cols.push(c,c,c*1.06); }
+  roomGeo.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));
+  env.add(new THREE.Mesh(roomGeo,new THREE.MeshBasicMaterial({side:THREE.BackSide,vertexColors:true})));
+  [[0,7.5,0,7,2.6,2.6],[-6.2,1.2,2.8,1.1,8.5,3.2],[6.2,1.2,2.8,1.1,8.5,2.3],[2.5,-0.8,7.2,5,0.5,0.9]].forEach(([x,y,z,w,h,k])=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+    m.material.color.setScalar(k); m.position.set(x,y,z); m.lookAt(0,0,0); env.add(m);
+  });
+  const pm=new THREE.PMREMGenerator(R); scene.environment=pm.fromScene(env,0.02).texture; pm.dispose();
+
+  G=new THREE.Group(); scene.add(G);
+  mats.clay=new THREE.MeshPhysicalMaterial({roughness:0.45,metalness:0,clearcoat:0.6,clearcoatRoughness:0.18,envMapIntensity:1});
+  // See-through glass: drawn back faces first, then front faces, so inner walls and far edges show through
+  const glassOpts={color:0xeef6f3,roughness:0.04,metalness:0,transparent:true,opacity:0.16,depthWrite:false,envMapIntensity:1.6,clearcoat:1,clearcoatRoughness:0.04,specularIntensity:1};
+  mats.glass=new THREE.MeshPhysicalMaterial({...glassOpts,side:THREE.FrontSide});
+  mats.glassBack=new THREE.MeshPhysicalMaterial({...glassOpts,opacity:0.1,side:THREE.BackSide});
+  // Reflection layer for glass: a studio (dark room, top softbox, two strip lights) reflected with Fresnel weighting.
+  // Kept separate from the glass opacity, so reflections stay strong while the body stays see-through.
+  mats.refl=new THREE.ShaderMaterial({
+    uniforms:{amount:{value:0.75}},
+    // Multiply blending is order-independent: overlapping outer and inner walls give the same result whichever triangle draws first
+    transparent:true, depthWrite:false, depthFunc:THREE.LessEqualDepth, side:THREE.DoubleSide,
+    blending:THREE.CustomBlending, blendEquation:THREE.AddEquation, blendSrc:THREE.DstColorFactor, blendDst:THREE.ZeroFactor,
+    vertexShader:'varying vec3 wN; varying vec3 wP; void main(){ vec4 w=modelMatrix*vec4(position,1.0); wP=w.xyz; wN=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:[
+      'uniform float amount; varying vec3 wN; varying vec3 wP;',
+      'float strip(vec3 R, vec3 d, float w){ vec2 a=normalize(R.xz+1e-5), b=normalize(d.xz); return smoothstep(1.0-w,1.0-w*0.35,dot(a,b))*(1.0-smoothstep(0.55,0.8,abs(R.y-d.y))); }',
+      'void main(){',
+      '  vec3 N=normalize(wN), V=normalize(cameraPosition-wP); if(dot(N,V)<0.0) N=-N;',
+      '  vec3 R=reflect(-V,N); float c=clamp(dot(N,V),0.0,1.0);',
+      '  float room=mix(0.2,0.42,R.y*0.5+0.5);',
+      '  float top=smoothstep(0.55,0.9,R.y);',
+      '  float s1=strip(R,vec3(-0.9,0.1,0.45),0.09), s2=strip(R,vec3(0.9,0.05,0.35),0.06), s3=strip(R,vec3(0.2,0.0,-1.0),0.05);',
+      '  float L=clamp(room+top+s1+0.8*s2+0.6*s3,0.0,1.0);',
+      '  float F=0.06+0.94*pow(1.0-c,4.0);',
+      '  float bright=max(max(top,s1),max(s2,s3));',
+      '  float a=amount*clamp(mix(0.03,0.75,F)*(1.0-bright)+bright*0.55,0.0,0.85);',
+      '  gl_FragColor=vec4(mix(vec3(1.0),vec3(L),a),1.0);',
+      '}'].join('\n')
+  });
+  mats.zebra=new THREE.ShaderMaterial({
+    uniforms:{freq:{value:16}},
+    extensions:{derivatives:true},
+    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vV=mv.xyz; vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'uniform float freq; varying vec3 vN; varying vec3 vV; void main(){ vec3 N=normalize(vN); vec3 Rf=reflect(normalize(vV),N); float s=sin(Rf.y*freq); float w=min(fwidth(s)*1.2,1.0); float k=smoothstep(-w,w,s); gl_FragColor=vec4(mix(vec3(0.05),vec3(0.95),k),1.0); }'
+  });
+  // Edge definition: darkens the surface as it turns away from the camera, ending in a crisp silhouette line
+  mats.edge=new THREE.ShaderMaterial({
+    uniforms:{color:{value:new THREE.Color(0x16202b)},strength:{value:0.5},power:{value:2.4},line:{value:0.55}},
+    transparent:true, depthWrite:false, depthFunc:THREE.LessEqualDepth, side:THREE.DoubleSide,
+    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vV=mv.xyz; vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'uniform vec3 color; uniform float strength; uniform float power; uniform float line; varying vec3 vN; varying vec3 vV; void main(){ float f=1.0-abs(dot(normalize(vN),normalize(-vV))); float a=strength*pow(f,power)+line*smoothstep(0.86,0.985,f); gl_FragColor=vec4(color,clamp(a,0.0,0.9)); }'
+  });
+  mesh=new THREE.Mesh(new THREE.BufferGeometry(),mats.glass); mesh.renderOrder=3; G.add(mesh);
+  back=new THREE.Mesh(mesh.geometry,mats.glassBack); back.renderOrder=1; G.add(back);
+  refl=new THREE.Mesh(mesh.geometry,mats.refl); refl.renderOrder=5; G.add(refl);
+  edge=new THREE.Mesh(mesh.geometry,mats.edge); edge.renderOrder=4; G.add(edge);
+
+  // Opaque floor: fine lines (glass only, to show refraction) and a soft contact shadow under the object
+  const fc=document.createElement('canvas'); fc.width=fc.height=1024;
+  floorTex=new THREE.CanvasTexture(fc); floorTex.encoding=THREE.sRGBEncoding; floorTex.anisotropy=4;
+  floor=new THREE.Mesh(new THREE.CircleGeometry(3.4,96),new THREE.MeshBasicMaterial({map:floorTex,toneMapped:false}));
+  floor.rotation.x=-Math.PI/2; scene.add(floor);
+
+  ghost=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({transparent:true,opacity:0.6,depthTest:false}));
+  ghost.renderOrder=10; G.add(ghost);
+}catch(err){
+  R=null; view.innerHTML='<div class="fail">This browser could not start WebGL, so the 3D view is unavailable. The front section still updates.</div>';
+}
+
+function drawFloor(){
+  if(!R) return;
+  const c=floorTex.image, x=c.getContext('2d'), bgc=rgb(tok('--panel')), ink=rgb(tok('--ink')), S=1024/6.8;
+  const mix=(a,b,t)=>a.map((v,i)=>Math.round(v*(1-t)+b[i]*t));
+  x.fillStyle=`rgb(${bgc.join(',')})`; x.fillRect(0,0,1024,1024);
+  const r=Math.max(0.25,footR)*S, a=state.material==='glass'?0.08:0.2;
+  let g=x.createRadialGradient(512,512,0,512,512,r*1.25);
+  g.addColorStop(0,`rgba(${ink.join(',')},${a})`); g.addColorStop(0.55,`rgba(${ink.join(',')},${a*0.45})`); g.addColorStop(1,`rgba(${ink.join(',')},0)`);
+  x.fillStyle=g; x.fillRect(0,0,1024,1024);
+  g=x.createRadialGradient(512,512,r*0.6,512,512,512);
+  g.addColorStop(0,`rgba(${bgc.join(',')},0)`); g.addColorStop(1,`rgba(${bgc.join(',')},1)`);
+  x.fillStyle=g; x.fillRect(0,0,1024,1024);
+  floorTex.needsUpdate=true;
+}
+// Keep the floor touching the lowest point the object reaches while it turns about its axis
+function updateFloor(){
+  if(!R) return;
+  const attr=mesh.geometry.attributes.position; if(!attr) return;
+  const P=attr.array, a=G.rotation.x, ca=Math.cos(a), sa=Math.abs(Math.sin(a)), n=P.length/3, step=Math.max(1,Math.floor(n/30000));
+  let mn=Infinity, rmax=0;
+  for(let v=0;v<n;v+=step){ const q=v*3, x=P[q], y=P[q+1], z=P[q+2], rho=Math.sqrt(x*x+z*z), yw=ca*y-sa*rho; if(yw<mn) mn=yw; if(rho>rmax) rmax=rho; }
+  if(!isFinite(mn)) return;
+  floorY=mn-0.004; floor.position.y=floorY; lastTilt=a;
+  if(Math.abs(rmax-footR)>0.02||floorDirty){ footR=rmax; floorDirty=false; drawFloor(); }
+}
+function applyMaterial(){
+  if(!R) return;
+  mesh.material=mats[state.material]; back.visible=refl.visible=state.material==='glass';
+  edge.visible=state.material!=='zebra';
+  const u=mats.edge.uniforms;
+  if(state.material==='glass'){ u.strength.value=0.2; u.power.value=3; u.line.value=0.6; }
+  else { u.strength.value=0.32; u.power.value=3; u.line.value=0.5; }
+  floorDirty=true; updateFloor();
+}
+function setGeometry(m){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(m.P,3));
+  g.setAttribute('normal',new THREE.BufferAttribute(m.N,3));
+  g.setIndex(new THREE.BufferAttribute(m.I,1));
+  mesh.geometry.dispose(); mesh.geometry=g; edge.geometry=g; back.geometry=g; refl.geometry=g;
+  updateFloor();
+}
+
+// Outline of the selected part: meridians and parallels of its superquadric, with taper and twist applied
+const spow=(v,e)=>Math.sign(v)*Math.pow(Math.abs(v),e);
+function ghostPoint(p,eta,om){
+  const ce=Math.cos(eta), se=Math.sin(eta), e1=se>=0?p.e1t:p.e1b;
+  let y=p.h*spow(se,e1); const t=Math.max(-1,Math.min(1,y/p.h)), e2=p.e2b+(p.e2t-p.e2b)*(t+1)/2;
+  const co=Math.cos(om), so=Math.sin(om);
+  const W=co>=0?p.w*(1+p.ax):p.w*(1-p.ax), D=so>=0?p.d*(1+p.az):p.d*(1-p.az);
+  let x,z;
+  if(p.ring){ const qc=(1+p.hole)/2, tw=(1-p.hole)/2, rr=qc+tw*spow(ce,e1); x=W*rr*spow(co,e2); z=D*rr*spow(so,e2); y=p.h*spow(se,e1); }
+  else { x=W*spow(ce,e1)*spow(co,e2); z=D*spow(ce,e1)*spow(so,e2); }
+  const sc=Math.max(0.05,1+p.taper*t+p.bulge*(1-t*t)); x*=sc; z*=sc;
+  const a=p.twist*D2R*t, c=Math.cos(a), s=Math.sin(a); [x,z]=[c*x-s*z,s*x+c*z];
+  if(p.bend!==0){
+    const k=p.bend*D2R/(2*p.h), Rb=1/k, cb=Math.cos(p.bendDir*D2R), sb=Math.sin(p.bendDir*D2R);
+    const bx=cb*x+sb*z, bz=-sb*x+cb*z, th=y*k, nx=Rb-(Rb-bx)*Math.cos(th); y=(Rb-bx)*Math.sin(th);
+    x=cb*nx-sb*bz; z=sb*nx+cb*bz;
+  }
+  return [x,y,z];
+}
+function updateGhost(){
+  if(!R) return;
+  const p=SP(); ghost.visible=state.ghost&&state.sel>0&&p.kind!=='mesh';   // the base part is the visible body, so only later parts get an outline
+  if(!ghost.visible) return;
+  const pt=(eta,om)=>ghostPoint(p,eta,om);
+  const v=[], E=p.ring?Math.PI:Math.PI/2;
+  for(let m=0;m<12;m++){ const om=-Math.PI+m/12*2*Math.PI; let prev=pt(-E,om);
+    for(let k=1;k<=48;k++){ const cur=pt(-E+k/48*2*E,om); v.push(...prev,...cur); prev=cur; } }
+  for(let n=1;n<6;n++){ const eta=-Math.PI/2+n/6*Math.PI; let prev=pt(eta,-Math.PI);
+    for(let k=1;k<=64;k++){ const cur=pt(eta,-Math.PI+k/64*2*Math.PI); v.push(...prev,...cur); prev=cur; } }
+  ghost.geometry.dispose(); ghost.geometry=new THREE.BufferGeometry();
+  ghost.geometry.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+  ghost.position.set(p.x,p.y,p.z); ghost.rotation.set(p.rx*D2R,p.ry*D2R,p.rz*D2R,'XYZ');
+}
+
+function applyTheme(){
+  if(R){ mats.clay.color.set(tok('--clay')).convertSRGBToLinear(); ghost.material.color.set(tok('--accent')); floorDirty=true; updateFloor(); }
+  drawSlice(160,lastBounds);
+}
+
+function rebuild(){
+  const res=interacting?Math.min(state.detail,52):state.detail;
+  const t0=performance.now();
+  prepare();
+  const m=polygonize(res,!interacting); lastBounds=m.b;
+  if(R){ setGeometry(m); updateGhost(); updateGizmo(); }
+  drawSlice(interacting?100:160,m.b);
+  $('stats').textContent=`${m.nx}×${m.ny}×${m.nz} grid · ${(m.I.length/3).toLocaleString()} triangles · ${Math.round(performance.now()-t0)} ms`;
+}
+
+// ---------- your models: parsing ----------
+function parseSTL(buf){
+  const dv=new DataView(buf);
+  if(buf.byteLength>=84){
+    const n=dv.getUint32(80,true);
+    if(84+n*50===buf.byteLength){
+      const T=new Float32Array(n*9);
+      for(let t=0;t<n;t++){ const o=84+t*50+12; for(let c=0;c<9;c++) T[t*9+c]=dv.getFloat32(o+c*4,true); }
+      return T;
+    }
+  }
+  const txt=new TextDecoder().decode(buf), re=/vertex\s+(\S+)\s+(\S+)\s+(\S+)/g, out=[]; let m;
+  while((m=re.exec(txt))) out.push(+m[1],+m[2],+m[3]);
+  if(out.length<9) throw new Error('No triangles found in this STL file.');
+  return new Float32Array(out.slice(0,out.length-out.length%9));
+}
+function parseOBJ(buf){
+  const lines=new TextDecoder().decode(buf).split('\n'), V=[], out=[];
+  for(const line of lines){
+    if(line.startsWith('v ')){ const p=line.trim().split(/\s+/); V.push(+p[1],+p[2],+p[3]); }
+    else if(line.startsWith('f ')){
+      const p=line.trim().split(/\s+/).slice(1).map(s=>{ let k=parseInt(s,10); return k<0?V.length/3+k:k-1; });
+      for(let i=1;i+1<p.length;i++) for(const k of [p[0],p[i],p[i+1]]){ if(!(k>=0&&k*3<V.length)) throw new Error('This OBJ file has a face that points to a missing vertex.'); out.push(V[k*3],V[k*3+1],V[k*3+2]); }
+    }
+  }
+  if(!out.length) throw new Error('No faces found in this OBJ file.');
+  return new Float32Array(out);
+}
+function parseGLB(buf){
+  const dv=new DataView(buf);
+  if(buf.byteLength<20||dv.getUint32(0,true)!==0x46546C67) throw new Error('This is not a binary glTF (.glb) file.');
+  let off=12, json=null, bin=null;
+  while(off+8<=buf.byteLength){
+    const len=dv.getUint32(off,true), type=dv.getUint32(off+4,true);
+    if(type===0x4E4F534A) json=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,off+8,len)));
+    else if(type===0x004E4942) bin=off+8;
+    off+=8+len;
+  }
+  if(!json||bin===null) throw new Error('This GLB file has no embedded geometry.');
+  const ext=json.extensionsUsed||[];
+  if(ext.includes('KHR_draco_mesh_compression')||ext.includes('EXT_meshopt_compression')) throw new Error('Compressed GLB files are not supported. Export again without Draco or meshopt compression.');
+  const readAcc=i=>{
+    const a=json.accessors[i], bv=json.bufferViews[a.bufferView], size={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[a.type];
+    const bpe={5121:1,5123:2,5125:4,5126:4}[a.componentType], rd={5121:o=>dv.getUint8(o),5123:o=>dv.getUint16(o,true),5125:o=>dv.getUint32(o,true),5126:o=>dv.getFloat32(o,true)}[a.componentType];
+    const stride=bv.byteStride||size*bpe, base=bin+(bv.byteOffset||0)+(a.byteOffset||0), out=new Float64Array(a.count*size);
+    for(let e=0;e<a.count;e++) for(let c=0;c<size;c++) out[e*size+c]=rd(base+e*stride+c*bpe);
+    return out;
+  };
+  const out=[], v=new THREE.Vector3();
+  const visit=(ni,parent)=>{
+    const nd=json.nodes[ni], m=new THREE.Matrix4();
+    if(nd.matrix) m.fromArray(nd.matrix);
+    else m.compose(new THREE.Vector3(...(nd.translation||[0,0,0])),new THREE.Quaternion(...(nd.rotation||[0,0,0,1])),new THREE.Vector3(...(nd.scale||[1,1,1])));
+    const w=parent.clone().multiply(m);
+    if(nd.mesh!==undefined) for(const prim of json.meshes[nd.mesh].primitives){
+      if(prim.mode!==undefined&&prim.mode!==4) continue;
+      const P=readAcc(prim.attributes.POSITION), I=prim.indices!==undefined?readAcc(prim.indices):null, cnt=I?I.length:P.length/3;
+      for(let k=0;k+2<cnt;k+=3) for(let c=0;c<3;c++){ const id=I?I[k+c]:k+c; v.set(P[id*3],P[id*3+1],P[id*3+2]).applyMatrix4(w); out.push(v.x,v.y,v.z); }
+    }
+    (nd.children||[]).forEach(c=>visit(c,w));
+  };
+  const sc=json.scenes?json.scenes[json.scene||0]:{nodes:json.nodes.map((_,i)=>i)};
+  sc.nodes.forEach(n=>visit(n,new THREE.Matrix4()));
+  if(!out.length) throw new Error('No triangle meshes found in this GLB file.');
+  return new Float32Array(out);
+}
+const nextFrame=()=>new Promise(r=>setTimeout(r,40));
+function setStatus(msg,err){ const s=$('upStatus'); s.textContent=msg||''; s.classList.toggle('err',!!err); }
+
+async function processModel(rec){
+  const raw=rec.ext==='stl'?parseSTL(rec.buf):rec.ext==='obj'?parseOBJ(rec.buf):parseGLB(rec.buf);
+  const nt=raw.length/9;
+  if(nt>MAX_TRIS) throw new Error(`This model has ${nt.toLocaleString()} triangles. Export a coarser mesh with fewer than ${MAX_TRIS.toLocaleString()}.`);
+  const T=new Float32Array(raw.length);
+  if(rec.up==='z'){ for(let i=0;i<raw.length;i+=3){ T[i]=raw[i]; T[i+1]=raw[i+2]; T[i+2]=-raw[i+1]; } }
+  else T.set(raw);
+  const ext=normalizeTris(T);
+  setStatus(`Building a distance field from ${nt.toLocaleString()} triangles…`); await nextFrame();
+  const t0=performance.now();
+  rec.sdf=buildSDF(T,ext.ex,ext.ey,ext.ez,SDF_RES);
+  rec.ex=Math.max(ext.ex,0.02); rec.ey=Math.max(ext.ey,0.02); rec.ez=Math.max(ext.ez,0.02); rec.tris=nt;
+  return performance.now()-t0;
+}
+function currentModel(){ const p=state.parts[0]; return p&&p.kind==='mesh'&&state.preset==='up:'+p.meshId?models.find(r=>r.id===p.meshId):null; }
+function loadModelPreset(rec){
+  state.parts=[newPart({kind:'mesh',meshId:rec.id,w:rec.ex,h:rec.ey,d:rec.ez})];
+  state.join='smooth'; state.r=0.05; state.shell=0; state.sel=0; state.gizmo=false; state.preset='up:'+rec.id;
+  syncUI(); dirty=true;
+}
+async function openModel(rec){
+  if(!rec.sdf){
+    try{ setStatus(`Reading ${rec.name}…`); await nextFrame(); await processModel(rec); }
+    catch(e){ setStatus(`Couldn't use ${rec.name}: ${e.message}`,true); return false; }
+  }
+  setStatus(`${rec.name}: ${rec.tris.toLocaleString()} triangles, rebuilt at ${SDF_RES} voxels across.`);
+  loadModelPreset(rec); return true;
+}
+
+// ---------- your models: storage in this browser ----------
+const DB={db:null,
+  async open(){ try{ this.db=await new Promise((res,rej)=>{ const r=indexedDB.open('superquadric-csg-models',1); r.onupgradeneeded=()=>r.result.createObjectStore('models',{keyPath:'id'}); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }catch(e){ this.db=null; } },
+  async all(){ if(!this.db) return []; try{ return await new Promise((res,rej)=>{ const q=this.db.transaction('models').objectStore('models').getAll(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); }); }catch(e){ return []; } },
+  put(rec){ if(!this.db) return; try{ this.db.transaction('models','readwrite').objectStore('models').put({id:rec.id,name:rec.name,ext:rec.ext,up:rec.up,buf:rec.buf,added:rec.added}); }catch(e){} },
+  del(id){ if(!this.db) return; try{ this.db.transaction('models','readwrite').objectStore('models').delete(id); }catch(e){} }
+};
+
+function renderMine(){
+  const box=$('mine'); box.innerHTML='';
+  if(!models.length){ const p=document.createElement('p'); p.className='empty'; p.textContent='No models yet. Files you add appear here as presets.'; box.appendChild(p); return; }
+  models.forEach(rec=>{
+    const wrap=document.createElement('span'); wrap.className='mine';
+    const b=document.createElement('button'); b.type='button'; b.className='pill'; b.textContent=rec.name; b.title=`${rec.name}.${rec.ext}`; b.dataset.name='up:'+rec.id;
+    b.onclick=()=>openModel(rec);
+    const x=document.createElement('button'); x.type='button'; x.className='x'; x.textContent='×'; x.setAttribute('aria-label',`Remove ${rec.name}`);
+    x.onclick=()=>{
+      const i=models.indexOf(rec); if(i>=0) models.splice(i,1); DB.del(rec.id);
+      if(state.parts.some(p=>p.kind==='mesh'&&p.meshId===rec.id)) loadPreset('Glass block');
+      setStatus(`Removed ${rec.name}.`); renderMine(); updatePills();
+    };
+    wrap.append(b,x); box.appendChild(wrap);
+  });
+  updatePills();
+}
+async function addFile(file){
+  if(!file) return;
+  selectTab($('tabMine'));
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(!['stl','obj','glb'].includes(ext)){ setStatus(`${file.name} is not an STL, OBJ or GLB file.`,true); return; }
+  if(file.size>MAX_MB*1048576){ setStatus(`${file.name} is larger than ${MAX_MB} MB. Export a coarser mesh.`,true); return; }
+  const rec={id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:file.name.replace(/\.[^.]+$/,''),ext,up:ext==='stl'?'z':'y',buf:await file.arrayBuffer(),added:Date.now()};
+  models.push(rec);
+  if(await openModel(rec)){ DB.put(rec); renderMine(); }
+  else { models.splice(models.indexOf(rec),1); renderMine(); }
+}
+$('file').onchange=e=>{ addFile(e.target.files[0]); e.target.value=''; };
+const drop=$('drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{ e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,()=>drop.classList.remove('over')));
+drop.addEventListener('drop',e=>{ e.preventDefault(); addFile(e.dataTransfer.files[0]); });
+['dragenter','dragover'].forEach(t=>stage.addEventListener(t,e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){ e.preventDefault(); stage.classList.add('over'); } }));
+stage.addEventListener('dragleave',e=>{ if(!stage.contains(e.relatedTarget)) stage.classList.remove('over'); });
+stage.addEventListener('drop',e=>{ e.preventDefault(); stage.classList.remove('over'); addFile(e.dataTransfer.files[0]); });
+$('upSeg').querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+  const rec=currentModel(); if(!rec||rec.up===b.dataset.up) return;
+  rec.up=b.dataset.up; rec.sdf=null; DB.put(rec); await openModel(rec);
+});
+(async()=>{
+  await DB.open();
+  const saved=await DB.all();
+  saved.sort((a,b)=>a.added-b.added).forEach(r=>{ if(r&&r.buf&&!models.some(m=>m.id===r.id)) models.push({...r,sdf:null}); });
+  renderMine();
+})();
+
+// ---------- library: saved shapes ----------
+// Saved in the artifact's database, privately per person (data/users/<id>); falls back to this browser's storage.
+const LIB_FIELDS=['parts','join','r','shell','round','base','vary','material','detail'];
+let libItems=[], libStore=null, libCurrent=null, toastTimer=0;
+function toast(msg){ $('toast').textContent=msg; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').textContent='',2600); }
+function snapshotThumb(){
+  if(!R) return '';
+  const gv=gizmo.visible, hv=ghost.visible; gizmo.visible=false; ghost.visible=false;
+  R.render(scene,cam);
+  const src=R.domElement, c=document.createElement('canvas'); c.width=192; c.height=144;
+  const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,192,144);
+  const sw=src.width, sh=src.height, crop=Math.min(sw,sh*4/3)*0.55;
+  x.drawImage(src,(sw-crop)/2,(sh-crop*0.75)/2,crop,crop*0.75,0,0,192,144);
+  gizmo.visible=gv; ghost.visible=hv;
+  try{ return c.toDataURL('image/jpeg',0.8); }catch(e){ return ''; }
+}
+function currentShape(){
+  const o={}; LIB_FIELDS.forEach(k=>o[k]=k==='parts'?JSON.parse(JSON.stringify(state.parts)):state[k]);
+  o.view={rx:G?G.rotation.x:0,ry:G?G.rotation.y:0,dist:camDist}; return o;
+}
+async function saveShape(){
+  const n=libItems.length+1, now=Date.now();
+  const item={name:`Shape ${n}`, created:now, shape:currentShape(), thumb:snapshotThumb()};
+  const id='s'+now.toString(36)+Math.random().toString(36).slice(2,6);
+  try{
+    if(libStore) await libStore.doc(id).set(item);
+    else { libItems.unshift({id,...item}); localSave(); renderLib(); }
+    libCurrent=id; toast(`Saved as ${item.name}`); selectTab($('tabLib'));
+  }catch(e){ toast(`Couldn't save: ${e&&e.message||'storage unavailable'}`); }
+}
+function applyShape(it){
+  const sh=it.shape;
+  const missing=sh.parts.find(p=>p.kind==='mesh'&&!models.some(m=>m.id===p.meshId&&m.sdf));
+  if(missing){
+    const rec=models.find(m=>m.id===missing.meshId);
+    if(rec){ openModel(rec).then(ok=>{ if(ok) applyShape(it); }); return; }
+    toast('This shape uses a model that is not in this browser.'); return;
+  }
+  state.parts=sh.parts.map(p=>Object.assign({},PART_DEFAULTS,p));
+  LIB_FIELDS.forEach(k=>{ if(k!=='parts'&&sh[k]!==undefined) state[k]=sh[k]; });
+  state.sel=0; state.gizmo=false; state.preset=null; libCurrent=it.id;
+  if(G&&sh.view){ G.rotation.x=sh.view.rx; G.rotation.y=sh.view.ry; camDist=sh.view.dist||camDist; placeCamera(); state.spin=false; }
+  syncUI(); applyMaterial(); updateGizmo(); dirty=true; renderLib(); toast(`Loaded ${it.name}`);
+}
+async function renameItem(it,name){
+  name=name.trim().slice(0,60)||it.name; if(name===it.name) return;
+  it.name=name;
+  try{ if(libStore) await libStore.doc(it.id).update({name}); else localSave(); }catch(e){ toast("Couldn't rename"); }
+}
+async function deleteItem(it){
+  try{ if(libStore) await libStore.doc(it.id).delete(); else { libItems=libItems.filter(x=>x!==it); localSave(); renderLib(); } toast(`Deleted ${it.name}`); }
+  catch(e){ toast("Couldn't delete"); }
+}
+function renderLib(){
+  const ul=$('lib'); ul.innerHTML='';
+  if(!libItems.length){ const li=document.createElement('p'); li.className='empty'; li.textContent='Nothing saved yet. Press Save in the view to keep the current shape here.'; ul.appendChild(li); return; }
+  libItems.forEach(it=>{
+    const li=document.createElement('li'); li.classList.toggle('on',it.id===libCurrent);
+    const img=document.createElement('img'); img.alt=''; if(it.thumb) img.src=it.thumb; img.onclick=()=>applyShape(it);
+    const meta=document.createElement('div'); meta.className='meta';
+    const inp=document.createElement('input'); inp.value=it.name; inp.setAttribute('aria-label','Name of saved shape');
+    inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){ inp.value=it.name; inp.blur(); } };
+    inp.onblur=()=>renameItem(it,inp.value);
+    const sm=document.createElement('small'); const np=it.shape.parts.length;
+    sm.textContent=`${new Date(it.created).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${np} part${np>1?'s':''}${it.shape.shell>0?' · inner layer':''}`;
+    meta.append(inp,sm);
+    const acts=document.createElement('div'); acts.className='acts';
+    const load=document.createElement('button'); load.type='button'; load.textContent='Load'; load.onclick=()=>applyShape(it);
+    const del=document.createElement('button'); del.type='button'; del.className='del'; del.textContent='Delete';
+    del.onclick=()=>{ if(del.classList.contains('arm')) deleteItem(it); else { del.classList.add('arm'); del.textContent='Confirm'; setTimeout(()=>{ del.classList.remove('arm'); del.textContent='Delete'; },3000); } };
+    acts.append(load,del); li.append(img,meta,acts); ul.appendChild(li);
+  });
+}
+function localSave(){ try{ localStorage.setItem('sq-csg-library',JSON.stringify(libItems)); }catch(e){} }
+function localLoad(){ try{ return JSON.parse(localStorage.getItem('sq-csg-library')||'[]'); }catch(e){ return []; } }
+$('saveBtn').onclick=saveShape;
+renderLib();
+(async()=>{
+  libItems=localLoad(); renderLib();
+  const claude=window.claude; if(!claude||!claude.use) return;
+  const [db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
+  const uid=user?await user.id():null;
+  if(!db||!uid){ $('libNote').textContent+=' Saved in this browser only.'; return; }
+  libStore=db.collection('data/users/'+uid);
+  libStore.orderBy('created','desc').onSnapshot(snap=>{
+    libItems=snap.docs.map(d=>({id:d.id,...d.data()})); renderLib();
+  },()=>{ libStore=null; libItems=localLoad(); renderLib(); });
+})();
+
+// ---------- view ----------
+function resize(){ if(!R) return; const w=stage.clientWidth, h=stage.clientHeight; R.setSize(w,h); cam.aspect=w/h; cam.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage);
+function placeCamera(){ if(!R) return; cam.position.copy(camDir).multiplyScalar(camDist); cam.lookAt(0,-0.1,0); }
+
+// Move and rotate handles, in the object's frame: arrows move along x, y, z; rings turn about them
+const DIRS=[new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)], AXC=[0xd2453a,0x2f9a4c,0x2e6fd8], HOVER=0xe8a317;
+const handles=[]; let gizmo=null, hovered=null;
+if(R){
+  gizmo=new THREE.Group(); gizmo.visible=false; G.add(gizmo);
+  const pickMat=new THREE.MeshBasicMaterial({visible:false});
+  const vmat=c=>new THREE.MeshBasicMaterial({color:c,depthTest:false,depthWrite:false,transparent:true,opacity:0.95,toneMapped:false});
+  const up=new THREE.Vector3(0,1,0), fwd=new THREE.Vector3(0,0,1);
+  DIRS.forEach((dir,i)=>{
+    const arrow=new THREE.Group(); arrow.quaternion.setFromUnitVectors(up,dir);
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.6,8),vmat(AXC[i])); shaft.position.y=0.42;
+    const head=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.15,20),vmat(AXC[i])); head.position.y=0.79;
+    const pick=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.78,8),pickMat); pick.position.y=0.48;
+    pick.userData={type:'move',axis:i,vis:[shaft,head]};
+    arrow.add(shaft,head,pick); gizmo.add(arrow);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.58,0.008,6,128),vmat(AXC[i])); ring.quaternion.setFromUnitVectors(fwd,dir);
+    const rpick=new THREE.Mesh(new THREE.TorusGeometry(0.58,0.05,6,64),pickMat); rpick.quaternion.copy(ring.quaternion);
+    rpick.userData={type:'rot',axis:i,vis:[ring]};
+    gizmo.add(ring,rpick); handles.push(pick,rpick);
+  });
+  gizmo.add(new THREE.Mesh(new THREE.SphereGeometry(0.035,16,12),vmat(0x18212c)));
+  gizmo.traverse(o=>{ o.renderOrder=30; });
+}
+function updateGizmo(){
+  if(!gizmo) return;
+  gizmo.visible=state.gizmo&&!!SP();
+  if(!gizmo.visible) return;
+  const p=SP(); gizmo.position.set(p.x,p.y,p.z);
+}
+function setHover(h){
+  if(hovered===h) return;
+  if(hovered) hovered.userData.vis.forEach((m,j)=>m.material.color.setHex(AXC[hovered.userData.axis]));
+  hovered=h;
+  if(h) h.userData.vis.forEach(m=>m.material.color.setHex(HOVER));
+  stage.classList.toggle('gz',!!h);
+}
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2(), invG=new THREE.Matrix4();
+function setRay(e){ const r=R.domElement.getBoundingClientRect(); ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1); ray.setFromCamera(ndc,cam); }
+function localRay(){ G.updateMatrixWorld(); invG.copy(G.matrixWorld).invert(); return ray.ray.clone().applyMatrix4(invG); }
+// Closest point on the axis line to the mouse ray, as a distance along the axis
+function axisParam(r,c,a){
+  const w=c.clone().sub(r.origin), b=a.dot(r.direction), den=1-b*b;
+  if(den<1e-3) return null;
+  return (b*r.direction.dot(w)-a.dot(w))/den;
+}
+// Angle of the mouse ray's hit on the plane through c with normal a
+function ringAngle(r,c,a){
+  const den=a.dot(r.direction); if(Math.abs(den)<0.02) return null;
+  const t=a.dot(c.clone().sub(r.origin))/den, v=r.origin.clone().addScaledVector(r.direction,t).sub(c);
+  const helper=Math.abs(a.y)<0.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0);
+  const u1=new THREE.Vector3().crossVectors(a,helper).normalize(), u2=new THREE.Vector3().crossVectors(a,u1);
+  return Math.atan2(v.dot(u2),v.dot(u1));
+}
+let gdrag=null;
+function startGizmo(ud,e){
+  const p=SP(), c=new THREE.Vector3(p.x,p.y,p.z), a=DIRS[ud.axis], lr=localRay();
+  gdrag={type:ud.type,a,c,start:{x:p.x,y:p.y,z:p.z},q0:new THREE.Quaternion().setFromEuler(new THREE.Euler(p.rx*D2R,p.ry*D2R,p.rz*D2R,'XYZ')),total:0,lastX:e.clientX};
+  if(ud.type==='move') gdrag.s0=axisParam(lr,c,a); else gdrag.prev=ringAngle(lr,c,a);
+  interacting=true; state.spin=false; $('spin').checked=false; state.preset=null; updatePills();
+}
+function moveGizmo(e){
+  const p=SP(), lr=localRay(), g=gdrag;
+  if(g.type==='move'){
+    const s=axisParam(lr,g.c,g.a); if(s===null||g.s0===null) return;
+    const cl=v=>Math.max(-2,Math.min(2,v)), dv=s-g.s0;
+    p.x=cl(g.start.x+g.a.x*dv); p.y=cl(g.start.y+g.a.y*dv); p.z=cl(g.start.z+g.a.z*dv);
+  } else {
+    const ang=ringAngle(lr,g.c,g.a);
+    if(ang===null||g.prev===null){ g.total+=(e.clientX-g.lastX)*0.01; }
+    else { let dd=ang-g.prev; if(dd>Math.PI) dd-=2*Math.PI; if(dd<-Math.PI) dd+=2*Math.PI; g.total+=dd; }
+    g.prev=ang; g.lastX=e.clientX;
+    const q=new THREE.Quaternion().setFromAxisAngle(g.a,g.total).multiply(g.q0), eu=new THREE.Euler().setFromQuaternion(q,'XYZ');
+    p.rx=eu.x/D2R; p.ry=eu.y/D2R; p.rz=eu.z/D2R;
+  }
+  updateGizmo(); updateGhost(); updatePosInfo(); dirty=true;
+}
+// Which part a clicked surface point belongs to: the part whose own surface passes closest to it
+function pickAt(e){
+  setRay(e);
+  const hit=ray.intersectObject(mesh,false)[0];
+  if(!hit){ state.gizmo=false; updateGizmo(); return; }
+  const lp=G.worldToLocal(hit.point.clone()); prepare();
+  let best=0, bd=Infinity;
+  for(let i=0;i<np;i++){ const d=Math.abs(partDist(i,lp.x,lp.y,lp.z)); if(d<bd-1e-4){ bd=d; best=i; } }
+  state.sel=best; state.gizmo=true; state.spin=false;
+  syncUI(); updateGhost(); updateGizmo();
+}
+let drag=false, moved=false, lx=0, ly=0, dx0=0, dy0=0;
+stage.addEventListener('pointerdown',e=>{
+  if(!R||e.target.closest('button,.inset')) return;   // controls laid over the view keep their own clicks
+  setRay(e);
+  if(gizmo.visible){ const h=ray.intersectObjects(handles,false)[0]; if(h){ startGizmo(h.object.userData,e); stage.setPointerCapture(e.pointerId); e.preventDefault(); return; } }
+  drag=true; moved=false; lx=dx0=e.clientX; ly=dy0=e.clientY; stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove',e=>{
+  if(!R) return;
+  if(gdrag){ setRay(e); moveGizmo(e); return; }
+  if(drag){
+    if(!moved&&Math.hypot(e.clientX-dx0,e.clientY-dy0)>4){ moved=true; state.spin=false; $('spin').checked=false; }
+    if(moved){ G.rotation.y+=(e.clientX-lx)*0.01; G.rotation.x=Math.max(-1.3,Math.min(1.3,G.rotation.x+(e.clientY-ly)*0.01)); }
+    lx=e.clientX; ly=e.clientY; return;
+  }
+  if(gizmo.visible){ setRay(e); const h=ray.intersectObjects(handles,false)[0]; setHover(h?h.object:null); } else setHover(null);
+});
+stage.addEventListener('pointerup',e=>{
+  if(gdrag){ gdrag=null; interacting=false; dirty=true; return; }
+  if(drag&&!moved) pickAt(e);
+  drag=false;
+});
+stage.addEventListener('pointercancel',()=>{ drag=false; if(gdrag){ gdrag=null; interacting=false; dirty=true; } });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&state.gizmo){ state.gizmo=false; updateGizmo(); } });
+stage.addEventListener('wheel',e=>{ if(!R) return; e.preventDefault(); camDist=Math.min(12,Math.max(2.8,camDist+e.deltaY*0.004)); placeCamera(); },{passive:false});
+
+renderMine();
+loadPreset('Glass block');
+applyMaterial(); applyTheme(); placeCamera(); resize();
+G&&(G.rotation.y=-0.5);
+(function loop(){
+  if(dirty){ dirty=false; rebuild(); }
+  if(R){
+    if(state.spin) G.rotation.y+=0.003;
+    if(gizmo&&gizmo.visible) gizmo.scale.setScalar(camDist*0.1);
+    if(G.rotation.x!==lastTilt) updateFloor();
+    R.render(scene,cam);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

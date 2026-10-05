@@ -12,7 +12,8 @@ or the category ranges change.
 
 ## Layout
 
-- `index.html`: the whole app, with its markup, CSS and script in one file.
+- `index.html`: the whole superformula app, with its markup, CSS and script in one file.
+- `superquadric.html`: the Superquadric CSG explorer, kept as its own file.
 - `shape-categories.md`: categories, parameter ranges and sample configs.
   This is the reference the presets come from.
 - `README.md`: the public description.
@@ -33,7 +34,10 @@ serve the folder (`python3 -m http.server 5190`). The `static` entry in
 - `build()` samples θ ∈ [−π, π] (`NU` = 260) by φ ∈ [−π/2, π/2]
   (`NV` = 130) and normalises the shape to fit. The formula is z-up, so
   positions are written as (x, z, y) to stand the profile along three.js's
-  y axis.
+  y axis. Geometry is replaced in place; the material stays on the mesh.
+- Materials are Solid (the original matte green Phong), plus Glass, Zebra
+  and Clay from the Superquadric explorer. Glass, the reflection layer and
+  the silhouette edge share that geometry.
 - three.js is **r128**, loaded as the global `THREE` build from cdnjs.
   Newer releases dropped that build. Moving to a newer version means
   switching to ES modules and an import map, so do it on purpose, not as a
@@ -47,8 +51,6 @@ serve the folder (`python3 -m http.server 5190`). The `static` entry in
 
 ## Known rough edges
 
-- `build()` makes a new `MeshPhongMaterial` on every rebuild and disposes
-  only the geometry, so materials leak while sliders move.
 - The seam and pole rows are duplicated, not welded, so `computeVertexNormals`
   can leave a shading seam on closed shapes.
 - `sf` returns 0 when the inner sum is 0, where clamping to 50 would match

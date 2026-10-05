@@ -16,6 +16,8 @@ An interactive 3D explorer for Gielis' superformula, built with plain HTML and t
 
 Open `index.html` in any browser. No build step is needed; three.js loads from a CDN.
 
+`superquadric.html` is the Superquadric CSG explorer. Open it the same way.
+
 ## Shape reference
 
 See [shape-categories.md](shape-categories.md) for categories, parameter ranges, and sample configs.
