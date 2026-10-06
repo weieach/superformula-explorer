@@ -9,8 +9,9 @@ An interactive 3D explorer for Gielis' superformula, built with plain HTML and t
 - Live 3D supershape built from two parameter sets (spherical product)
 - 2D curve preview of Set 1
 - Presets for common shape categories (spheres, cubes, stars, flowers, urchins, gears, torn forms, and more)
-- Randomize button for both parameter sets
+- A randomize button skewed toward well-formed shapes, plus buttons to copy or download both sets as JSON
 - Drag to rotate, scroll to zoom
+- Light and dark themes (follows the system until you pick one)
 
 ## Running it
 
