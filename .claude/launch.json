@@ -6,7 +6,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [
         "-e",
-        "const h=require('http'),f=require('fs'),p=require('path');const t={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.md':'text/markdown; charset=utf-8','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml'};const root=process.cwd();const port=+process.env.PORT||5190;h.createServer((q,s)=>{let u=decodeURIComponent(q.url.split('?')[0]);if(u.endsWith('/'))u+='index.html';const fp=p.join(root,p.normalize(u));if(!fp.startsWith(root)){s.writeHead(403);return s.end();}f.readFile(fp,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'Content-Type':t[p.extname(fp)]||'application/octet-stream'});s.end(d);});}).listen(port,()=>console.log('serving on http://localhost:'+port));"
+        "const h=require('http'),f=require('fs'),p=require('path');const t={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.md':'text/markdown; charset=utf-8','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.ico':'image/x-icon'};const root=process.cwd();const port=+process.env.PORT||5190;h.createServer((q,s)=>{let u=decodeURIComponent(q.url.split('?')[0]);if(u.endsWith('/'))u+='index.html';const fp=p.join(root,p.normalize(u));if(!fp.startsWith(root)){s.writeHead(403);return s.end();}f.readFile(fp,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'Content-Type':t[p.extname(fp)]||'application/octet-stream'});s.end(d);});}).listen(port,()=>console.log('serving on http://localhost:'+port));"
       ],
       "port": 5190,
       "autoPort": true

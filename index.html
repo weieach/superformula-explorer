@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Superformula explorer</title>
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" type="image/png" href="favicon.png" sizes="256x256">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.21/katex.min.css">
@@ -34,8 +36,9 @@
   --axis:rgba(255,255,255,.14); --curve:#FFFFFF; --mesh:#E6E8EA;
   --shadow:rgba(0,0,0,.6); --backdrop:rgba(0,0,0,.6);
 }
-/* Light theme is lavender by its own tokens (each is the old neutral multiplied by
-   --tint), so it needs no overlay and the mesh stays true silver. */
+/* Light theme bakes the wash into its own tokens (each is a neutral multiplied by
+   --tint), so it needs no overlay and the mesh stays true silver. Randomize
+   rewrites those tokens from the same palette. */
 [data-theme=light]{
   color-scheme:light;
   --bg:#D6CAEA; --tile:#DFD2F4; --raised:#CCC0DF; --raised-hover:#C3B8D5;
@@ -52,7 +55,7 @@ html,body{height:100%;overflow:hidden}
 body{margin:0;height:100%;min-height:0;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font-family:"Instrument Sans",system-ui,sans-serif;font-size:15px;line-height:1.5}
 .mono{font-family:"Space Mono",ui-monospace,Menlo,monospace}
 .shell{width:100%;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-header{flex:none;padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+header{flex:none;padding:24px 26px 14px;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .brand{display:flex;flex-wrap:wrap;align-items:flex-end;gap:4px 16px;min-width:0}
 h1{font-family:"Instrument Sans",system-ui,sans-serif;font-size:40px;font-weight:500;line-height:1.15;margin:0;letter-spacing:-0.01em}
 .by{margin:0;display:flex;align-items:center;padding-bottom:5px;font-family:"Space Mono",monospace;font-size:12px;line-height:1;letter-spacing:.06em;text-transform:lowercase;color:var(--muted)}
@@ -67,7 +70,7 @@ h1{font-family:"Instrument Sans",system-ui,sans-serif;font-size:40px;font-weight
 .round-btn svg{width:18px;height:18px;display:block}
 [data-theme=dark] .sun,[data-theme=light] .moon{display:none}
 #themeToggle{display:none} /* hidden for now; the theme follows the system or a saved choice */
-main{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(460px,560px);grid-template-rows:minmax(0,1fr);gap:var(--gutter);padding:0 20px 20px}
+main{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(460px,560px);grid-template-rows:minmax(0,1fr);gap:var(--gutter);padding:0 26px 26px}
 .tile{background:var(--tile);border-radius:var(--radius);padding:16px 18px;min-width:0}
 .stage{position:relative;padding:0;background:var(--tile);min-height:0;overflow:hidden;cursor:grab}
 .stage:active{cursor:grabbing}
@@ -84,7 +87,7 @@ main{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-colum
 aside{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr);gap:var(--gutter);min-height:0;overflow:auto}
 .span{grid-column:1/-1}
 .formula-tile{display:flex;align-items:center;justify-content:center;min-height:64px;padding-top:12px;padding-bottom:12px}
-.formula{width:100%;color:var(--ink);font-size:1.6rem;line-height:1.2;overflow:hidden;white-space:nowrap;text-align:center}
+.formula{width:100%;color:var(--ink);font-size:1em;line-height:1.2;overflow:hidden;white-space:nowrap;text-align:center}
 .formula .katex{font-size:1em;white-space:nowrap}
 /* While a slider is in use, the formula dims and only the matching variable keeps full
    ink. Colour (not opacity) does the dimming, because a child can't undo its parent's
@@ -107,7 +110,7 @@ aside{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-templa
 .more summary::after{content:"";border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor}
 .more-menu{position:absolute;z-index:3;top:calc(100% + 6px);left:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;width:min(320px,calc(100vw - 48px));padding:8px;background:var(--tile);border:1px solid var(--line);border-radius:18px;box-shadow:0 16px 40px var(--shadow)}
 .tile.values{background:none;padding:0;border-radius:0}
-.values{display:flex;flex-direction:column;gap:var(--gutter);min-height:0}
+.values{display:flex;flex-direction:column;gap:calc(var(--gutter) * 2);min-height:0}
 .actions{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:var(--gutter)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:13px 12px;border-radius:999px;border:0;background:var(--secondary);color:var(--ink);cursor:pointer;white-space:nowrap}
 .btn svg{width:16px;height:16px;flex:none;display:block}
@@ -145,8 +148,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   html,body{height:auto;overflow:auto}
   body{min-height:100%}
   .shell{height:auto;overflow:visible}
-  main{overflow:visible;grid-template-columns:1fr;grid-template-rows:auto;padding:0 12px 16px}
-  header{padding:16px 12px 12px}
+  main{overflow:visible;grid-template-columns:1fr;grid-template-rows:auto;padding:0 18px 22px}
+  header{padding:22px 18px 12px}
   aside{overflow:visible;grid-template-rows:auto}
   .config{flex:none;max-height:none;overflow:visible}
   .stage{min-height:420px}
@@ -154,6 +157,20 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 @media (max-width:600px){
   aside{grid-template-columns:1fr}
   h1{font-size:26px}
+  /* Square stage. Pinch-zoom stays off; a vertical pan still scrolls the page. */
+  .stage{aspect-ratio:1;min-height:0;touch-action:pan-y}
+  #stageTag,#to2d{display:none}
+  .actions{
+    position:fixed;z-index:4;left:0;right:0;bottom:0;
+    grid-template-columns:1fr 1fr;
+    padding:12px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    background:var(--bg);
+  }
+  #randomize{grid-column:1 / -1;grid-row:1}
+  #copyValues{grid-column:1;grid-row:2}
+  #downloadValues{grid-column:2;grid-row:2}
+  /* Clear the pinned bar, and keep the same gap that sits above the buttons. */
+  main{padding-bottom:calc(var(--gutter) * 2 + 12px + 44px + var(--gutter) + 44px + 18px + env(safe-area-inset-bottom, 0px))}
 }
 dialog{border:1px solid var(--line);border-radius:20px;background:var(--tile);color:var(--ink);padding:20px 22px 18px;width:min(420px,calc(100vw - 32px));box-shadow:0 18px 48px var(--shadow)}
 dialog::backdrop{background:var(--backdrop)}
@@ -162,13 +179,17 @@ dialog h2{font-size:16px;margin-bottom:2px}
 .save-name input{font-family:"Space Mono",monospace;font-size:14px;text-transform:none;letter-spacing:0;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--secondary);color:var(--ink)}
 .save-error{margin:8px 0 0;font-size:13px;color:var(--ink)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:16px}
-/* Theme-colour wash over the whole UI: multiplied, so whites take on --tint and blacks
-   stay black. --tint is a lighter lavender than --accent, which stays on buttons and
-   the curve. It never takes pointer events. The modal dialog renders in the top layer,
-   above any page element, so it carries its own copy of the wash. */
-.tint{position:fixed;inset:0;z-index:2147483647;background:var(--tint);mix-blend-mode:multiply;pointer-events:none}
-dialog::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--tint);mix-blend-mode:multiply;pointer-events:none}
-[data-theme=light] .tint,[data-theme=light] dialog::after{display:none}
+/* Theme-colour wash over the whole UI: multiplied, so whites take on the pane colour
+   and blacks stay black. Two panes share one blend: the settled colour, and the next
+   one parked up-left. A new colour slides that pane in on a diagonal (see slideTint).
+   --accent is the same hue, a step darker, for focus rings and hovers. The wash never
+   takes pointer events. The modal dialog renders in the top layer, so it carries its
+   own copy of the panes, driven by the same --sx/--sy. */
+.tint{position:fixed;inset:0;z-index:2147483647;overflow:hidden;background:transparent;mix-blend-mode:multiply;pointer-events:none}
+.tint-dialog{position:absolute;z-index:2;border-radius:inherit}
+.tint-pane{position:absolute;inset:-50%;background:var(--tint-prev, var(--tint))}
+.tint-pane.is-next{background:var(--tint-next, transparent);transform:translate3d(var(--sx, -92%), var(--sy, -58%), 0) rotate(-18deg)}
+[data-theme=light] .tint{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -229,7 +250,7 @@ dialog::after{content:"";position:absolute;inset:0;border-radius:inherit;backgro
   </aside>
 </main>
 </div>
-<div class="tint" aria-hidden="true"></div>
+<div class="tint" aria-hidden="true"><div class="tint-pane"></div><div class="tint-pane is-next"></div></div>
 <dialog id="saveDialog" aria-labelledby="saveTitle">
   <form id="saveForm">
     <h2 id="saveTitle">Download values</h2>
@@ -243,10 +264,12 @@ dialog::after{content:"";position:absolute;inset:0;border-radius:inherit;backgro
       <button type="submit" class="btn primary">Download</button>
     </div>
   </form>
+  <div class="tint tint-dialog" aria-hidden="true"><div class="tint-pane"></div><div class="tint-pane is-next"></div></div>
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.21/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
 <script>
 const P = { A:{m:7,n1:0.2,n2:1.7,n3:1.7,a:1,b:1}, B:{m:7,n1:0.2,n2:1.7,n3:1.7,a:1,b:1} };
 const presets = {
@@ -420,6 +443,7 @@ document.getElementById('randB').onclick = ()=> randomizeSet('B');
 document.getElementById('randomize').onclick = ()=>{
   P.A = randomSet(); P.B = randomSet();
   clearActive(); sync();
+  randomTint();
 };
 
 // Both sets as JSON, for the copy and download buttons.
@@ -799,6 +823,11 @@ function resize(){
 window.addEventListener('resize', resize);
 
 let drag=false, lx=0, ly=0, auto=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const narrowStage = matchMedia('(max-width: 600px)');
+function syncNarrowStage(){
+  if (narrowStage.matches && mode === '2d') setMode('3d');
+}
+narrowStage.addEventListener('change', syncNarrowStage);
 stage.addEventListener('pointerdown', e=>{
   if (mode === '2d' || e.target.closest('.inset')) return;
   drag=true; auto=false; lx=e.clientX; ly=e.clientY; stage.setPointerCapture(e.pointerId);
@@ -806,9 +835,11 @@ stage.addEventListener('pointerdown', e=>{
 stage.addEventListener('pointermove', e=>{ if(!drag) return; G.rotation.y += (e.clientX-lx)*0.01; G.rotation.x += (e.clientY-ly)*0.01; lx=e.clientX; ly=e.clientY; });
 stage.addEventListener('pointerup', ()=>drag=false);
 stage.addEventListener('wheel', e=>{
-  if (mode === '2d') return;
+  if (mode === '2d' || narrowStage.matches) return;
   e.preventDefault(); C.position.z = Math.min(10,Math.max(2.2, C.position.z + e.deltaY*0.003));
 }, {passive:false});
+stage.addEventListener('gesturestart', e=>{ if (narrowStage.matches) e.preventDefault(); }, {passive:false});
+stage.addEventListener('gesturechange', e=>{ if (narrowStage.matches) e.preventDefault(); }, {passive:false});
 to2d.addEventListener('click', ()=>{ setMode('2d'); to3dInset.focus({preventScroll:true}); });
 to3d.addEventListener('click', ()=>{ setMode('3d'); to2d.focus({preventScroll:true}); });
 to3dInset.addEventListener('click', ()=>{ setMode('3d'); to2d.focus({preventScroll:true}); });
@@ -819,15 +850,117 @@ if (window.katex){
   const v = (k, tex)=>`\\htmlClass{v v-${k}}{${tex}}`;
   const tex = String.raw`\displaystyle r\left(\varphi\right)=\left(\left|\frac{\cos\left(\frac{${v('m','m')}\varphi}{4}\right)}{${v('a','a')}}\right|^{${v('n2','n_{2}')}}+\left|\frac{\sin\left(\frac{${v('m','m')}\varphi}{4}\right)}{${v('b','b')}}\right|^{${v('n3','n_{3}')}}\right)^{-\frac{1}{${v('n1','n_{1}')}}}`;
   katex.render(tex, formula, {throwOnError:false, trust:ctx=>ctx.command==='\\htmlClass', strict:code=>code==='htmlExtension' ? 'ignore' : 'warn'});
+  // Body size, unless that line is wider than the panel — then shrink to fit.
   const fitFormula = ()=>{
     const box = formula.querySelector('.katex');
-    if (!box || !formula.clientWidth) return;
+    const width = formula.clientWidth;
+    if (!box || !width) return;
     box.style.fontSize = '1em';
     const need = box.getBoundingClientRect().width;
-    if (need > formula.clientWidth) box.style.fontSize = (formula.clientWidth / need) + 'em';
+    if (!need) return;
+    box.style.fontSize = (need > width ? width / need : 1) + 'em';
   };
   fitFormula();
   document.fonts.ready.then(fitFormula);
+  new ResizeObserver(fitFormula).observe(formula);
+}
+// Overlay colours share the lavender tint's OKLCH lightness (0.906) and chroma (0.049);
+// only the hue changes, so a new wash stays the same darkness. Light theme has no
+// overlay: its surfaces are these greys multiplied by the tint, rewritten here.
+const TINT_HUES = [0, 24, 48, 78, 115, 150, 178, 205, 232, 262, 302, 332];
+const LIGHT_BASE = {'--bg':0xED,'--tile':0xF7,'--raised':0xE2,'--raised-hover':0xD8,'--secondary':0xFF,'--secondary-hover':0xF2,'--muted':0x6A,'--line':0xDA,'--track':0xD6};
+let tintHue = null;
+function oklchRgb(L, C, H){
+  const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ];
+}
+function byte(c){
+  c = Math.min(1, Math.max(0, c));
+  const s = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return Math.round(Math.min(1, Math.max(0, s)) * 255);
+}
+function oklch(L, C, H){
+  let c = C, rgb = oklchRgb(L, c, H);
+  while (c > 0 && rgb.some(v => v < -0.001 || v > 1.001)){ c -= 0.002; rgb = oklchRgb(L, c, H); }
+  const [r, g, b] = rgb.map(byte);
+  return {r, g, b, hex:'#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')};
+}
+function mulGrey(base, tint){
+  return '#' + [tint.r, tint.g, tint.b].map(v => Math.round(base * v / 255).toString(16).padStart(2, '0')).join('');
+}
+const SLIDE_FROM = {x:-92, y:-58};
+let wipe = null, wipeId = 0;
+function placeSlide(x, y){
+  const root = document.documentElement;
+  root.style.setProperty('--sx', x + '%');
+  root.style.setProperty('--sy', y + '%');
+}
+function holdTint(hex){
+  document.documentElement.style.setProperty('--tint-prev', hex);
+  placeSlide(SLIDE_FROM.x, SLIDE_FROM.y);
+}
+function slideTint(hex){
+  const root = document.documentElement;
+  if (wipe) wipe.pause();
+  const id = ++wipeId;
+  const prev = root.style.getPropertyValue('--tint-prev').trim()
+    || getComputedStyle(root).getPropertyValue('--tint').trim();
+  root.style.setProperty('--tint-prev', prev);
+  root.style.setProperty('--tint-next', hex);
+  root.style.setProperty('--tint', hex);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || typeof anime !== 'function'){ holdTint(hex); wipe = null; return; }
+  const state = {x:SLIDE_FROM.x, y:SLIDE_FROM.y};
+  placeSlide(state.x, state.y);
+  wipe = anime({
+    targets: state,
+    x: 0, y: 0,
+    duration: 880,
+    easing: 'cubicBezier(.22,1,.36,1)',
+    update: () => { if (id === wipeId) placeSlide(state.x, state.y); },
+    complete: () => { if (id !== wipeId) return; holdTint(hex); wipe = null; }
+  });
+}
+function paintTint(hue, slide){
+  tintHue = hue;
+  const root = document.documentElement;
+  const tint = oklch(0.9065, 0.0492, hue);
+  const light = root.dataset.theme === 'light';
+  if (light){
+    Object.entries(LIGHT_BASE).forEach(([key, base]) => root.style.setProperty(key, mulGrey(base, tint)));
+    root.style.setProperty('--inset', `rgba(${tint.r},${tint.g},${tint.b},.92)`);
+    root.style.setProperty('--accent', oklch(0.7496, 0.1273, hue).hex);
+    root.style.setProperty('--accent-hover', oklch(0.691, 0.1483, hue).hex);
+    root.style.setProperty('--on-accent', oklch(0.2021, 0.0615, hue).hex);
+    root.style.setProperty('--accent-fg', oklch(0.5216, 0.1749, hue).hex);
+  } else {
+    Object.keys(LIGHT_BASE).forEach(key => root.style.removeProperty(key));
+    root.style.removeProperty('--inset');
+    root.style.removeProperty('--accent-fg');
+    root.style.setProperty('--accent', oklch(0.8176, 0.0917, hue).hex);
+    root.style.setProperty('--accent-hover', oklch(0.7442, 0.1233, hue).hex);
+    root.style.setProperty('--on-accent', oklch(0.2131, 0.0577, hue).hex);
+  }
+  if (slide) slideTint(tint.hex);
+  else {
+    if (wipe){ wipe.pause(); wipe = null; wipeId++; }
+    root.style.setProperty('--tint', tint.hex);
+    holdTint(tint.hex);
+  }
+}
+function randomTint(){
+  const current = tintHue == null ? 302 : tintHue;
+  const choices = TINT_HUES.filter(h => h !== current);
+  paintTint(choices[Math.floor(Math.random() * choices.length)], true);
+  draw2();
 }
 // Light / dark theme. The saved choice (if any) was applied in <head> before paint.
 const themeToggle = document.getElementById('themeToggle');
@@ -836,6 +969,7 @@ function applyTheme(t){
   const next = t === 'dark' ? 'light' : 'dark';
   themeToggle.setAttribute('aria-label', `Switch to ${next} theme`);
   themeToggle.title = `Switch to ${next} theme`;
+  if (tintHue != null) paintTint(tintHue);
   mat.color.set(css('--mesh')).convertSRGBToLinear();
   draw2();
 }

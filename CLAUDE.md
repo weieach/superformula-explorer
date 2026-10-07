@@ -35,8 +35,10 @@ project. `.vercelignore` keeps `.claude/` and `CLAUDE.md` out of the upload.
 ## How it works
 
 - `P.A` (Set 1) and `P.B` (Set 2) hold `{m, n1, n2, n3, a, b}`. Every slider,
-  preset or randomize action edits `P` and calls `sync()`, which updates the
-  controls and redraws the 2D curve (`draw2`) and the mesh (`build`).
+ preset or randomize action edits `P` and calls `sync()`, which updates the
+ controls and redraws the 2D curve (`draw2`) and the mesh (`build`).
+ Randomize all also calls `randomTint()`, which picks a new wash from
+ `TINT_HUES`.
 - The formula tile is KaTeX (display-style fractions). Each variable is
   wrapped in `\htmlClass{v v-<key>}` (KaTeX `trust` allows only that
   command). While a slider is held or nudged with the keyboard, `lightVar(k)`
@@ -111,12 +113,16 @@ project. `.vercelignore` keeps `.claude/` and `CLAUDE.md` out of the upload.
   tile (the stage insets) sit one gutter from its edge with radius
   `--radius − --gutter`, and have no border. Labels are Space Mono uppercase, and the lavender accent is used
   for the 2D curve, focus rings and hovers.
-- Dark theme only: a fixed `.tint` layer (`--tint`, a lighter lavender than
-  `--accent`, `mix-blend-mode: multiply`, `pointer-events: none`, max
-  z-index) washes the whole UI. The modal dialog sits in the top layer above
-  it, so `dialog::after` carries its own copy. Colours you pick there appear
-  multiplied by the tint. The light theme has no overlay: its tokens are
-  themselves lavender (each the old neutral multiplied by `--tint`).
+- Dark theme only: a `.tint` layer (`mix-blend-mode: multiply`,
+ `pointer-events: none`, max z-index) washes the whole UI. It holds two
+ panes: the settled colour (`--tint-prev`) and the incoming one. On
+ Randomize all, `slideTint` (Anime.js) brings the incoming pane in from
+ the upper left, rotated −18°, so the new wash slides in on a diagonal.
+ The hue is one of `TINT_HUES` (same OKLCH lightness and chroma).
+ `--accent` follows that hue. The modal dialog is in the top layer, so
+ `.tint-dialog` repeats the panes and reads the same `--sx`/`--sy`. The
+ light theme has no overlay: its tokens are that tint multiplied into the
+ neutral bases in `LIGHT_BASE` (`paintTint`).
 - Controls are built in JS from `specs`. Preset tags carry an inline-SVG
   icon from `presetIcon()`: both sets drawn with `sf`, Set 1 solid over a
   faded Set 2 (Set 1 alone collides, e.g. Sphere and Cylinder).
